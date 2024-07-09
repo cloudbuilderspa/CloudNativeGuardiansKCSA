@@ -5,6 +5,7 @@ class Pregunta:
         self.enunciado = enunciado
         self.opciones = opciones
         self.respuesta_correcta = respuesta_correcta
+        self.barajar_opciones()  # Barajar las opciones al inicializar
 
     def mostrar_pregunta(self):
         print(self.enunciado)
@@ -14,6 +15,14 @@ class Pregunta:
 
     def verificar_respuesta(self, respuesta):
         return respuesta == self.respuesta_correcta
+
+    def barajar_opciones(self):
+        # Guarda la opción correcta
+        opcion_correcta = self.opciones[self.respuesta_correcta - 1]
+        # Baraja las opciones
+        random.shuffle(self.opciones)
+        # Actualiza el índice de la respuesta correcta
+        self.respuesta_correcta = self.opciones.index(opcion_correcta) + 1
 
 # Preguntas en inglés
 preguntas_ingles = [
