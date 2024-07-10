@@ -27,6 +27,21 @@ metadata:
     description: "Namespace with restrictive Pod Security Standards"
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: baseline-ns
+  labels:
+    # Enforces the baseline Pod Security Standard on this namespace, allowing some restricted operations.
+    pod-security.kubernetes.io/enforce: baseline
+    # Issues a warning if a pod does not comply with the baseline Pod Security Standard.
+    pod-security.kubernetes.io/warn: baseline
+    # Audits pod security violations against the baseline Pod Security Standard.
+    pod-security.kubernetes.io/audit: baseline
+  annotations:
+    description: "Namespace with baseline Pod Security Standards"
+
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: default
@@ -41,7 +56,15 @@ metadata:
   namespace: restrictive-ns
   annotations:
     description: "Default ServiceAccount for restrictive-ns"
-
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: baseline-ns
+  annotations:
+    description: "Default ServiceAccount for baseline-ns"
+---
 apiVersion: v1
 kind: Pod
 metadata:
@@ -67,3 +90,22 @@ spec:
     securityContext:
       privileged: false
       allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: baseline-pod
+  namespace: baseline-ns
+  annotations:
+    description: "Pod in baseline namespace with balanced privileges"
+spec:
+  serviceAccountName: default
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
