@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: permissive-ns
+  labels:
+    # Enforces the privileged Pod Security Standard on this namespace, allowing privileged operations.
+    pod-security.kubernetes.io/enforce: privileged
+    # Issues a warning if a pod does not comply with the privileged Pod Security Standard.
+    pod-security.kubernetes.io/warn: privileged
+    # Audits pod security violations against the privileged Pod Security Standard.
+    pod-security.kubernetes.io/audit: privileged
+  annotations:
+    description: "Namespace with permissive Pod Security Standards"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: restrictive-ns
+  labels:
+    # Enforces the restricted Pod Security Standard on this namespace, disallowing privileged operations.
+    pod-security.kubernetes.io/enforce: restricted
+    # Issues a warning if a pod does not comply with the restricted Pod Security Standard.
+    pod-security.kubernetes.io/warn: restricted
+    # Audits pod security violations against the restricted Pod Security Standard.
+    pod-security.kubernetes.io/audit: restricted
+  annotations:
+    description: "Namespace with restrictive Pod Security Standards"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: permissive-ns
+  annotations:
+    description: "Default ServiceAccount for permissive-ns"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: restrictive-ns
+  annotations:
+    description: "Default ServiceAccount for restrictive-ns"
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: permissive-pod
+  namespace: permissive-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restrictive-pod
+  namespace: restrictive-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: false
