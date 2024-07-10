@@ -18,8 +18,7 @@
 
 
 
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+################################################
 
 # Sistemas de Seguridad: privileged, baseline y restrictive
 # Privileged (Privilegiado)
@@ -35,7 +34,7 @@
 # Inglés: The restrictive pod security standard enforces the highest level of security by disallowing privileged operations, hostPath volumes, and other high-risk capabilities. It is intended for highly secure environments where strict security controls are required.
 # Español: El estándar de seguridad de pods restrictive impone el nivel más alto de seguridad al no permitir operaciones privilegiadas, volúmenes hostPath y otras capacidades de alto riesgo. Está destinado a entornos altamente seguros donde se requieren controles de seguridad estrictos.
 
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+################################################
 
 apiVersion: v1
 kind: Namespace
