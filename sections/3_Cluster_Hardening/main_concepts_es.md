@@ -209,6 +209,36 @@ El aislamiento y la segmentación son técnicas utilizadas para limitar el "radi
 **Concepto:**
 El registro de auditoría proporciona un registro cronológico de las llamadas realizadas al API Server de Kubernetes. Cada entrada del registro de auditoría contiene información sobre quién realizó la solicitud, qué acción se realizó, qué recurso se vio afectado y el resultado.
 
+{% raw %}
+<div class="mermaid">
+graph TD
+    Client["Client (User/SA/Component)"] -- "1. API Request" --> KAPI["Kubernetes API Server"]
+    
+    KAPI -- "2. Request Processed" --> KAPI
+    KAPI -- "3. Audit Event Generated <br/> (based on Audit Policy)" --> AuditEvent["Audit Event"]
+    
+    subgraph "Audit Backends (Configured in API Server)"
+        AuditEvent -- "4a. Log Backend" --> LogFile["Audit Log File <br/> (e.g., /var/log/audit.log)"]
+        AuditEvent -- "4b. Webhook Backend (Optional)" --> WebhookReceiver["External Webhook Receiver"]
+    end
+    
+    LogFile -- "5a. Log Collection Agent <br/> (e.g., Fluentd, Filebeat)" --> Agent["Log Agent"]
+    Agent -- "6a. Forwarded" --> SIEM["Centralized Logging / SIEM <br/> (Analysis, Alerting, Storage)"]
+    WebhookReceiver -- "5b. Directly Processed or Forwarded" --> SIEM
+    
+    SIEM -- "7. Security Monitoring & Forensics" --> SecOps["Security/Ops Team"]
+
+    classDef actor fill:#E8DAEF,stroke:#333;
+    class Client, SecOps actor;
+    classDef k8scomp fill:#D6EAF8,stroke:#333;
+    class KAPI, AuditEvent k8scomp;
+    classDef backend fill:#D5F5E3,stroke:#333;
+    class LogFile, WebhookReceiver backend;
+    classDef infra fill:#FEF9E7,stroke:#333;
+    class Agent, SIEM infra;
+</div>
+{% endraw %}
+
 **Importancia para el Fortalecimiento del Clúster:**
 *   **Monitoreo de Seguridad:** Detectar actividad sospechosa, intentos de acceso no autorizado o violaciones de políticas.
 *   **Respuesta a Incidentes:** Proporcionar un rastro de eventos para comprender cómo ocurrió un incidente de seguridad y qué se vio afectado.

@@ -236,7 +236,37 @@ Isolation and segmentation are techniques used to limit the "blast radius" if a 
 ## Audit Logging
 
 **Concept:**
-Audit logging provides a chronological record of calls made to the Kubernetes API Server. Each audit log entry contains information about who made the request, what action was performed, which resource was affected, and the outcome.
+Audit logging provides a chronological record of calls made to the Kubernetes API Server. Each audit log entry contains information about who made the request, what action was performed, what resource was affected, and the outcome.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    Client["Client (User/SA/Component)"] -- "1. API Request" --> KAPI["Kubernetes API Server"]
+    
+    KAPI -- "2. Request Processed" --> KAPI
+    KAPI -- "3. Audit Event Generated <br/> (based on Audit Policy)" --> AuditEvent["Audit Event"]
+    
+    subgraph "Audit Backends (Configured in API Server)"
+        AuditEvent -- "4a. Log Backend" --> LogFile["Audit Log File <br/> (e.g., /var/log/audit.log)"]
+        AuditEvent -- "4b. Webhook Backend (Optional)" --> WebhookReceiver["External Webhook Receiver"]
+    end
+    
+    LogFile -- "5a. Log Collection Agent <br/> (e.g., Fluentd, Filebeat)" --> Agent["Log Agent"]
+    Agent -- "6a. Forwarded" --> SIEM["Centralized Logging / SIEM <br/> (Analysis, Alerting, Storage)"]
+    WebhookReceiver -- "5b. Directly Processed or Forwarded" --> SIEM
+    
+    SIEM -- "7. Security Monitoring & Forensics" --> SecOps["Security/Ops Team"]
+
+    classDef actor fill:#E8DAEF,stroke:#333;
+    class Client, SecOps actor;
+    classDef k8scomp fill:#D6EAF8,stroke:#333;
+    class KAPI, AuditEvent k8scomp;
+    classDef backend fill:#D5F5E3,stroke:#333;
+    class LogFile, WebhookReceiver backend;
+    classDef infra fill:#FEF9E7,stroke:#333;
+    class Agent, SIEM infra;
+</div>
+{% endraw %}
 
 **Importance for Cluster Hardening:**
 *   **Security Monitoring:** Detect suspicious activity, unauthorized access attempts, or policy violations.
