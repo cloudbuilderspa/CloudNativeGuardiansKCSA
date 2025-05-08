@@ -1,0 +1,302 @@
+# Pod Security Standards (PSS) Example Configurations
+# This manifest provides examples of the three PSS enforcement levels and corresponding workloads
+
+# ====================================
+# PART 1: NAMESPACE DEFINITIONS WITH PSS ENFORCEMENT
+# ====================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: privileged-namespace
+  labels:
+    # No enforcement - allows any Pod to be created
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: baseline-namespace
+  labels:
+    # Medium security - blocks most known privilege escalations
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: restricted-namespace
+  labels:
+    # High security - follows security best practices
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+# ====================================
+# PART 2: RESOURCE QUOTAS AND LIMIT RANGES
+# ====================================
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+  namespace: restricted-namespace
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: restricted-namespace
+spec:
+  limits:
+  - default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 200m
+      memory: 256Mi
+    type: Container
+
+# ====================================
+# PART 3: SERVICE ACCOUNTS WITH RBAC CONFIGURATIONS
+# ====================================
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restricted-sa
+  namespace: restricted-namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restricted-role
+  namespace: restricted-namespace
+rules:
+- apiGroups: [""]
+  resources: ["pods", "configmaps"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restricted-rolebinding
+  namespace: restricted-namespace
+subjects:
+- kind: ServiceAccount
+  name: restricted-sa
+  namespace: restricted-namespace
+roleRef:
+  kind: Role
+  name: restricted-role
+  apiGroup: rbac.authorization.k8s.io
+
+# ====================================
+# PART 4: EXAMPLE WORKLOADS FOR EACH PSS LEVEL
+# ====================================
+
+# 4.1 Privileged Level Example (allows privileged containers)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privileged-workload
+  namespace: privileged-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: privileged-app
+  template:
+    metadata:
+      labels:
+        app: privileged-app
+    spec:
+      containers:
+      - name: privileged-container
+        image: nginx:latest
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["NET_ADMIN", "SYS_ADMIN"]
+        resources:
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+          requests:
+            cpu: "500m"
+            memory: "256Mi"
+
+# 4.2 Baseline Level Example (no privileged containers, some restrictions)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: baseline-workload
+  namespace: baseline-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: baseline-app
+  template:
+    metadata:
+      labels:
+        app: baseline-app
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: baseline-container
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "250m"
+            memory: "128Mi"
+
+# 4.3 Restricted Level Example (most secure configuration)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restricted-workload
+  namespace: restricted-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: restricted-app
+  template:
+    metadata:
+      labels:
+        app: restricted-app
+    spec:
+      serviceAccountName: restricted-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        runAsGroup: 10000
+        fsGroup: 10000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: restricted-container
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          limits:
+            cpu: "300m"
+            memory: "200Mi"
+          requests:
+            cpu: "200m"
+            memory: "100Mi"
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+          readOnly: false
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+
+# ====================================
+# PART 5: INDIVIDUAL POD EXAMPLES WITH SECURITY CONTEXTS
+# ====================================
+
+# 5.1 Privileged Pod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod
+  namespace: privileged-namespace
+spec:
+  containers:
+  - name: privileged-pod
+    image: busybox:latest
+    command: ["sleep", "3600"]
+    securityContext:
+      privileged: true
+
+# 5.2 Baseline Pod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: baseline-pod
+  namespace: baseline-namespace
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+  containers:
+  - name: baseline-pod
+    image: busybox:latest
+    command: ["sleep", "3600"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+
+# 5.3 Restricted Pod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restricted-pod
+  namespace: restricted-namespace
+spec:
+  serviceAccountName: restricted-sa
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10000
+    runAsGroup: 10000
+    fsGroup: 10000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: restricted-pod
+    image: busybox:latest
+    command: ["sleep", "3600"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      limits:
+        cpu: "100m"
+        memory: "100Mi"
+      requests:
+        cpu: "50m"
+        memory: "50Mi"
+

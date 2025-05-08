@@ -322,4 +322,199 @@ This lab guide provides practical exercises and conceptual reviews to help you u
      apiVersion: templates.gatekeeper.sh/v1beta1
      kind: ConstraintTemplate
      metadata:
+       name: requireencryptedstorage
+       annotations:
+         description: "Requires all PVCs to use encrypted storage classes."
+     spec:
+       crd:
+         spec:
+           names:
+             kind: RequireEncryptedStorage
+           validation:
+             openAPIV3Schema:
+               type: object
+               properties:
+                 encryptedStorageClasses:
+                   type: array
+                   items:
+                     type: string
+       targets:
+         - target: admission.k8s.gatekeeper.sh
+           rego: |
+             package requireencryptedstorage
+             
+             violation[{"msg": msg}] {
+               input.review.kind.kind == "PersistentVolumeClaim"
+               sc := input.review.object.spec.storageClassName
+               not sc_is_encrypted(sc)
+               msg := sprintf("PVC '%v' uses non-encrypted storage class '%v'", [input.review.object.metadata.name, sc])
+             }
+             
+             sc_is_encrypted(sc) {
+               encrypted_sc := input.parameters.encryptedStorageClasses[_]
+               sc == encrypted_sc
+             }
+     ```
+
+## Exercise 6: Pod Security Standards and Configurations
+
+**Objective:** To understand and implement Kubernetes Pod Security Standards and secure pod configurations.
+
+**Instructions:**
+
+1. **Understanding Pod Security Standards (PSS):**
+   * **Discussion:**
+     * What are the three Pod Security Standards profiles (Privileged, Baseline, Restricted) and their use cases?
+     * How does Pod Security Standards differ from Pod Security Policies (deprecated)?
+     * What security threats do PSS configurations mitigate?
+
+   * **The PSS Enforcement Levels:**
+     * **Privileged:** Unrestricted policy, providing the widest possible level of permissions
+     * **Baseline:** Minimally restrictive policy which prevents known privilege escalations
+     * **Restricted:** Heavily restricted policy, following security best practices
+
+**✨ Prediction Point ✨**
+*If a pod requires access to host namespaces or privileged capabilities to function, which Pod Security Standard level would it need? What security implications would this have, and what compensating controls might you implement?*
+
+2. **Exploring the Pod Security Manifest:**
+   * Review the pod-security.yaml manifest to understand the security configurations:
+     ```bash
+     kubectl apply -f pod-security.yaml --dry-run=client -o yaml
+     ```
+   * **Key components in the manifest:**
+     * Namespace configurations with PSS enforcement labels
+     * Pod security context configurations
+     * Container security settings
+     * Resource limits and requests
+     * Service Account with restricted permissions
+
+**✅ Verification Point ✅**
+*Examine the security contexts in the pod-security.yaml file. Identify three security controls that are implemented and explain what threats each one mitigates. Which PSS profile (Privileged, Baseline, or Restricted) do these settings align with?*
+
+3. **Implementing Pod Security Standards:**
+   * Apply the pod-security.yaml manifest to create namespaces with PSS enforcement:
+     ```bash
+     kubectl apply -f pod-security.yaml
+     ```
+   * Verify the namespace labels that enforce Pod Security Standards:
+     ```bash
+     kubectl get ns pss-restricted --show-labels
+     kubectl get ns pss-baseline --show-labels
+     ```
+   * Observe the Pod Security admission controller messages:
+     ```bash
+     kubectl describe ns pss-restricted
+     kubectl describe ns pss-baseline
+     ```
+
+4. **Testing Pod Security Enforcement:**
+   * Try to deploy a privileged pod in the restricted namespace:
+     ```yaml
+     # privileged-pod.yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       name: privileged-pod
+       namespace: pss-restricted
+     spec:
+       containers:
+       - name: privileged-container
+         image: nginx
+         securityContext:
+           privileged: true
+     ```
+   * Apply the pod and observe the result:
+     ```bash
+     kubectl apply -f privileged-pod.yaml
+     ```
+   * Try to deploy a pod with a more secure configuration:
+     ```yaml
+     # secure-pod.yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       name: secure-pod
+       namespace: pss-restricted
+     spec:
+       securityContext:
+         runAsNonRoot: true
+         seccompProfile:
+           type: RuntimeDefault
+       containers:
+       - name: secure-container
+         image: nginx
+         securityContext:
+           allowPrivilegeEscalation: false
+           capabilities:
+             drop: ["ALL"]
+           readOnlyRootFilesystem: true
+         resources:
+           limits:
+             cpu: "500m"
+             memory: "512Mi"
+           requests:
+             cpu: "100m"
+             memory: "128Mi"
+     ```
+
+**🚀 Challenge Task 🚀**
+*Create a custom Pod Security Standard enforcement strategy for a multi-tenant Kubernetes cluster. Define which controls should be enforced at the namespace level vs. the admission controller level. Consider how you would handle exceptions for system workloads that require elevated privileges while maintaining strong security for tenant workloads.*
+
+5. **Security Context Deep Dive:**
+   * **Pod-level Security Context:**
+     * Explore different Pod-level security settings:
+       ```yaml
+       securityContext:
+         runAsUser: 1000
+         runAsGroup: 3000
+         fsGroup: 2000
+         runAsNonRoot: true
+         seccompProfile:
+           type: RuntimeDefault
+       ```
+     * What is the difference between `runAsUser` and `runAsNonRoot`?
+     * Why is the RuntimeDefault seccomp profile recommended?
+
+   * **Container-level Security Context:**
+     * Explore container-specific security settings:
+       ```yaml
+       securityContext:
+         allowPrivilegeEscalation: false
+         privileged: false
+         readOnlyRootFilesystem: true
+         capabilities:
+           drop: ["ALL"]
+           add: ["NET_BIND_SERVICE"]
+       ```
+     * Why is it important to drop ALL capabilities and only add what's needed?
+     * What does `readOnlyRootFilesystem: true` protect against?
+
+**✅ Verification Point ✅**
+*Consider a scenario where a malicious container attempts a container escape to access the host system. Identify three security context settings that would help prevent this attack and explain how each one contributes to the defense.*
+
+6. **Capabilities and their Security Implications:**
+   * **Discussion:**
+     * What are Linux capabilities and how do they relate to container security?
+     * Why is the principle of least privilege especially important for capabilities?
+     * Common capabilities and their security implications:
+       * `NET_ADMIN`: Allows network configuration changes
+       * `SYS_ADMIN`: Provides a wide range of administrative capabilities
+       * `SYS_PTRACE`: Allows process tracing/debugging
+       * `NET_BIND_SERVICE`: Allows binding to privileged ports (<1024)
+
+   * **Testing Capability Restrictions:**
+     * Deploy a pod with restricted capabilities and attempt to perform privileged operations:
+       ```bash
+       kubectl exec -it secure-pod -n pss-restricted -- bash -c "apt-get update"
+       ```
+     * Observe the permission denied errors
+
+**🚀 Challenge Task 🚀**
+*Analyze an existing application in your environment and create a least-privilege security context configuration. Start by dropping ALL capabilities and running as non-root, then identify only the specific capabilities and permissions the application needs to function. Document how you would test this configuration to ensure functionality while maintaining security.*
+
+7. **Clean up:**
+   ```bash
+   kubectl delete -f pod-security.yaml
+   kubectl delete pod secure-pod -n pss-restricted
+   ```
 

@@ -1,0 +1,131 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secure-nginx-sa
+  namespace: pod-security-demo
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-nginx
+  namespace: pod-security-demo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: secure-nginx
+  template:
+    metadata:
+      labels:
+        app: secure-nginx
+    spec:
+      serviceAccountName: secure-nginx-sa
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: nginx
+        image: nginx:1.21-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+          readOnlyRootFilesystem: true
+          runAsUser: 101   # nginx user in the nginx image
+          runAsGroup: 101  # nginx group in the nginx image
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: var-run
+          mountPath: /var/run
+        - name: var-cache-nginx
+          mountPath: /var/cache/nginx
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          medium: Memory
+      - name: var-run
+        emptyDir: {}
+      - name: var-cache-nginx
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secure-nginx-svc
+  namespace: pod-security-demo
+spec:
+  selector:
+    app: secure-nginx
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secure-nginx-network-policy
+  namespace: pod-security-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: secure-nginx
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: TCP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+

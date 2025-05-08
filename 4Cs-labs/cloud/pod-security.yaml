@@ -1,0 +1,356 @@
+# Pod Security Standards Manifest for Cloud Security Lab
+# This manifest demonstrates comprehensive pod security configurations in Kubernetes,
+# including Pod Security Standards, security contexts, and container hardening measures.
+# SECURITY BEST PRACTICES:
+# - Follow Pod Security Standards (Privileged, Baseline, Restricted)
+# - Use security contexts to limit privileges
+# - Implement resource limits to prevent DoS attacks
+# - Configure seccomp and AppArmor profiles for additional protection
+# - Avoid running containers as root
+# - Use read-only root filesystems where possible
+
+---
+# 1. Namespace with Pod Security Standards Enforcement
+# Kubernetes 1.25+ natively enforces Pod Security Standards through namespace labels
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pss-restricted-ns
+  labels:
+    # Enforce the restricted profile - strictest security settings
+    pod-security.kubernetes.io/enforce: restricted
+    # Warn about any violations of the baseline profile
+    pod-security.kubernetes.io/warn: baseline
+    # Audit any violations of the restricted profile
+    pod-security.kubernetes.io/audit: restricted
+    lab: cloud-security
+
+---
+# 2. Namespace with Baseline Pod Security Standards
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pss-baseline-ns
+  labels:
+    # Enforce the baseline profile - medium security settings
+    pod-security.kubernetes.io/enforce: baseline
+    # Warn about any violations of the restricted profile
+    pod-security.kubernetes.io/warn: restricted
+    # Audit violations at the restricted level
+    pod-security.kubernetes.io/audit: restricted
+    lab: cloud-security
+
+---
+# 3. ResourceQuota to limit resources in the restricted namespace
+# This helps prevent resource-based denial of service
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: security-resource-quota
+  namespace: pss-restricted-ns
+spec:
+  hard:
+    # Pod count limits
+    pods: "10"
+    # CPU resource limits
+    requests.cpu: "1"
+    limits.cpu: "2"
+    # Memory resource limits
+    requests.memory: 1Gi
+    limits.memory: 2Gi
+    # Storage quota
+    requests.storage: 5Gi
+    # Prevent privileged security contexts
+    configmaps: "10"
+    secrets: "10"
+    services: "5"
+
+---
+# 4. LimitRange to set default resource constraints
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: pss-restricted-ns
+spec:
+  limits:
+  - default:
+      memory: 256Mi
+      cpu: 500m
+    defaultRequest:
+      memory: 128Mi
+      cpu: 200m
+    type: Container
+
+---
+# 5. Pod that follows Restricted Pod Security Standards
+# This pod follows the most restrictive security settings
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restricted-pod
+  namespace: pss-restricted-ns
+  labels:
+    app: secure-app
+    security-profile: restricted
+  annotations:
+    # Apply custom seccomp profile - explicit definition is best practice
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+    # AppArmor profile annotation (optional)
+    container.apparmor.security.beta.kubernetes.io/app: "runtime/default"
+spec:
+  # Pod-level security context
+  securityContext:
+    # Non-root user requirement
+    runAsNonRoot: true
+    # Explicitly set user and group IDs
+    runAsUser: 1000
+    runAsGroup: 3000
+    # Set filesystem group for volume access
+    fsGroup: 2000
+    # Enable seccomp at pod level
+    seccompProfile:
+      type: RuntimeDefault
+    # Drop all capabilities and only add those specifically needed
+    # Note: In restricted profile, capabilities should be dropped at container level
+  # No access to host namespaces (required for restricted PSS)
+  hostNetwork: false
+  hostPID: false
+  hostIPC: false
+  containers:
+  - name: app
+    # Use minimal, regularly updated base image
+    image: nginx:1.25-alpine
+    # Non-privileged container ports only
+    ports:
+    - containerPort: 8080
+      name: http
+      protocol: TCP
+    # Container-level security context
+    securityContext:
+      # Prevent privilege escalation
+      allowPrivilegeEscalation: false
+      # Use read-only root filesystem
+      readOnlyRootFilesystem: true
+      # Drop ALL capabilities (strict principle of least privilege)
+      capabilities:
+        drop:
+        - ALL
+        # Add only what's necessary - e.g., for binding to ports < 1024
+        add:
+        - NET_BIND_SERVICE
+      # Container-specific seccomp settings (optional if pod-level is set)
+      seccompProfile:
+        type: RuntimeDefault
+    # Resource limits to prevent DoS
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+    # Liveness probe for container health monitoring
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 20
+    # Readiness probe to verify service availability
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    # Volume mounts - use read-only where possible
+    volumeMounts:
+    - name: config-volume
+      mountPath: /etc/nginx/conf.d
+      readOnly: true
+    # Writable volumes for required directories when using readOnlyRootFilesystem
+    - name: temp-volume
+      mountPath: /tmp
+    - name: var-run-volume
+      mountPath: /var/run
+  # Init container with same security settings
+  initContainers:
+  - name: init-config
+    image: busybox:1.36
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      capabilities:
+        drop:
+        - ALL
+    command: ['sh', '-c', 'echo "Initializing configuration..." > /work-dir/index.html']
+    volumeMounts:
+    - name: config-volume
+      mountPath: /work-dir
+  # Define volumes
+  volumes:
+  - name: config-volume
+    emptyDir: {}
+  - name: temp-volume
+    emptyDir: {}
+  - name: var-run-volume
+    emptyDir: {}
+
+---
+# 6. Pod that follows Baseline Pod Security Standards
+# More permissive than restricted, but still has important security measures
+apiVersion: v1
+kind: Pod
+metadata:
+  name: baseline-pod
+  namespace: pss-baseline-ns
+  labels:
+    app: baseline-app
+    security-profile: baseline
+spec:
+  # Pod-level security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 2000
+    # Baseline allows more flexibility with seccomp
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: nginx:1.25
+    ports:
+    - containerPort: 8080
+    securityContext:
+      # Prevent privilege escalation - required for baseline
+      allowPrivilegeEscalation: false
+      # Drop dangerous capabilities, but more permissive than restricted
+      capabilities:
+        drop:
+        - NET_RAW
+        - SYS_ADMIN
+        - SYS_CHROOT
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "250m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"
+    volumeMounts:
+    - name: data-volume
+      mountPath: /data
+  volumes:
+  - name: data-volume
+    emptyDir: {}
+
+---
+# 7. ServiceAccount with minimal permissions
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restricted-service-account
+  namespace: pss-restricted-ns
+
+---
+# 8. Role with minimal permissions for the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restricted-role
+  namespace: pss-restricted-ns
+rules:
+- apiGroups: [""]
+  resources: ["pods", "configmaps"]
+  verbs: ["get", "list"]
+
+---
+# 9. RoleBinding to associate the role with the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restricted-role-binding
+  namespace: pss-restricted-ns
+subjects:
+- kind: ServiceAccount
+  name: restricted-service-account
+  namespace: pss-restricted-ns
+roleRef:
+  kind: Role
+  name: restricted-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# 10. Deployment using Pod Security Standards and best practices
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-deployment
+  namespace: pss-restricted-ns
+  labels:
+    app: secure-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: secure-app
+  template:
+    metadata:
+      labels:
+        app: secure-app
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+    spec:
+      # Use the restricted service account
+      serviceAccountName: restricted-service-account
+      # Pod security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: app
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        # Mount configuration as a read-only volume
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+      volumes:
+      - name: config-volume
+        configMap:
+          name: nginx-config
+          optional: true
+      - name: tmp-volume
+        emptyDir: {}
+      # Automatically remove pods that are completed or failed
+      restartPolicy: Always
+      # Define node selection criteria to ensure pods run on nodes with proper security features
+      nodeSelector:
+        kubernetes.io/os: linux
+

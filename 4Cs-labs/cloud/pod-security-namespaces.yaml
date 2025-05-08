@@ -1,0 +1,35 @@
+# Pod Security Standards Namespaces for Cloud Security Lab
+# This file contains only the namespace definitions from the pod-security.yaml manifest
+# Apply this file first before applying pod-security-resources.yaml
+
+---
+# 1. Namespace with Pod Security Standards Enforcement
+# Kubernetes 1.25+ natively enforces Pod Security Standards through namespace labels
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pss-restricted-ns
+  labels:
+    # Enforce the restricted profile - strictest security settings
+    pod-security.kubernetes.io/enforce: restricted
+    # Warn about any violations of the baseline profile
+    pod-security.kubernetes.io/warn: baseline
+    # Audit any violations of the restricted profile
+    pod-security.kubernetes.io/audit: restricted
+    lab: cloud-security
+
+---
+# 2. Namespace with Baseline Pod Security Standards
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pss-baseline-ns
+  labels:
+    # Enforce the baseline profile - medium security settings
+    pod-security.kubernetes.io/enforce: baseline
+    # Warn about any violations of the restricted profile
+    pod-security.kubernetes.io/warn: restricted
+    # Audit violations at the restricted level
+    pod-security.kubernetes.io/audit: restricted
+    lab: cloud-security
+
