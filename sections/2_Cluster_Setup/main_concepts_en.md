@@ -1,3 +1,10 @@
+---
+layout: default
+title: Main Concepts
+parent: "2. Cluster Setup" 
+nav_order: 1
+permalink: /sections/cluster-setup/main-concepts/
+---
 # Main Concepts of Kubernetes Cluster Component Security
 
 Understanding the security of each component within a Kubernetes cluster is fundamental for maintaining a robust and resilient cloud native environment. The Kubernetes and Cloud Native Security Associate (KCSA) exam emphasizes the security aspects of these core components. This document outlines the main security concepts related to setting up and securing your Kubernetes cluster components, based on the KCSA study guide.

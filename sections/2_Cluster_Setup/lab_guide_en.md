@@ -1,3 +1,10 @@
+---
+layout: default
+title: Lab Guide
+parent: "2. Cluster Setup" 
+nav_order: 3
+permalink: /sections/cluster-setup/lab-guide/
+---
 # Lab Guide: Kubernetes Cluster Component Security
 
 This lab guide provides practical exercises to help you understand and apply security concepts related to Kubernetes cluster components. These exercises are designed for a KCSA-level understanding and assume you have `kubectl` access to a Kubernetes cluster (like Minikube, Kind, or a cloud-managed cluster where you have appropriate permissions).

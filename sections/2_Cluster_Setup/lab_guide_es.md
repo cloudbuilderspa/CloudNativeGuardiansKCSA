@@ -1,3 +1,11 @@
+---
+layout: default
+title: Guía de Laboratorio
+parent: "2. Configuración del Clúster"
+nav_order: 3
+permalink: /es/sections/2-configuracion-cluster/guia-laboratorio/
+lang: es
+---
 # Guía de Laboratorio: Seguridad de los Componentes del Clúster de Kubernetes
 
 Esta guía de laboratorio proporciona ejercicios prácticos para ayudarle a comprender y aplicar conceptos de seguridad relacionados con los componentes del clúster de Kubernetes. Estos ejercicios están diseñados para un nivel de comprensión KCSA y asumen que usted tiene acceso `kubectl` a un clúster de Kubernetes (como Minikube, Kind o un clúster gestionado en la nube donde tenga los permisos apropiados).

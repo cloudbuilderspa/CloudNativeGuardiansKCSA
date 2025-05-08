@@ -1,3 +1,10 @@
+---
+layout: default
+title: Key Topics
+parent: "2. Cluster Setup" 
+nav_order: 2
+permalink: /sections/cluster-setup/key-topics/
+---
 # Key Topics in Kubernetes Cluster Component Security
 
 This document delves deeper into specific key topics related to securing Kubernetes cluster components, building upon the foundational concepts outlined in `main_concepts_en.md`. A granular understanding of these areas is crucial for the KCSA certification and for implementing robust security in real-world Kubernetes deployments.

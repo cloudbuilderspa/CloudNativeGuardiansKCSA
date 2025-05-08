@@ -1,3 +1,11 @@
+---
+layout: default
+title: Conceptos Principales
+parent: "2. Configuración del Clúster"
+nav_order: 1
+permalink: /es/sections/2-configuracion-cluster/conceptos-principales/
+lang: es
+---
 # Conceptos Principales de Seguridad de los Componentes del Clúster de Kubernetes
 
 Comprender la seguridad de cada componente dentro de un clúster de Kubernetes es fundamental para mantener un entorno cloud native robusto y resiliente. El examen Kubernetes and Cloud Native Security Associate (KCSA) enfatiza los aspectos de seguridad de estos componentes centrales. Este documento describe los principales conceptos de seguridad relacionados con la configuración y protección de los componentes de su clúster de Kubernetes, basado en la guía de estudio KCSA.

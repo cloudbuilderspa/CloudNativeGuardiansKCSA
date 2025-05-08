@@ -15,7 +15,7 @@ El contenido de este repositorio está organizado en secciones temáticas, cada 
 
 1.  **[1. Visión General de la Seguridad Cloud Native](/es/sections/vision-general-seguridad-cloud-native/)**
     *   ([1. Overview of Cloud Native Security](/sections/overview-cloud-native-security/))
-2.  **[2. Configuración del Clúster](/es/sections/configuracion-cluster/)**
+2.  **[2. Configuración del Clúster](/es/sections/2-configuracion-cluster/)**
     *   ([2. Cluster Setup](/sections/cluster-setup/))
 3.  **[3. Fortalecimiento del Clúster](/es/sections/fortalecimiento-cluster/)**
     *   ([3. Cluster Hardening](/sections/cluster-hardening/))

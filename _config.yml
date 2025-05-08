@@ -9,7 +9,7 @@ search_enabled: true
 # Auxiliary links for the header
 aux_links:
   "View on GitHub":
-    - "https://cloudbuilderspa.github.io/CloudNativeGuardiansKCSA"
+    - "https://github.com/cloudbuilderspa/CloudNativeGuardiansKCSA" # Corrected to point to the repo
 
 # Default color scheme
 color_scheme: nil # Can be 'dark' or 'light' or nil for user choice

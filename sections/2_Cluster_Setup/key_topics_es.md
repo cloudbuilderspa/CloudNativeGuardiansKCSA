@@ -1,3 +1,11 @@
+---
+layout: default
+title: Temas Clave
+parent: "2. Configuración del Clúster"
+nav_order: 2
+permalink: /es/sections/2-configuracion-cluster/temas-clave/
+lang: es
+---
 # Temas Clave en la Seguridad de los Componentes del Clúster de Kubernetes
 
 Este documento profundiza en temas clave específicos relacionados con la seguridad de los componentes del clúster de Kubernetes, basándose en los conceptos fundamentales descritos en `main_concepts_es.md`. Una comprensión granular de estas áreas es crucial para la certificación KCSA y para implementar una seguridad robusta en despliegues de Kubernetes en el mundo real.
