@@ -13,20 +13,20 @@ El contenido de este repositorio está organizado en secciones temáticas, cada 
 
 ### Secciones Principales:
 
-1.  **[1. Visión General de la Seguridad Cloud Native](/CloudNativeGuardiansKCSA/es/sections/vision-general-seguridad-cloud-native/)**
-    *   ([1. Overview of Cloud Native Security](/CloudNativeGuardiansKCSA/sections/overview-cloud-native-security/))
-2.  **[2. Configuración del Clúster](/CloudNativeGuardiansKCSA/es/sections/configuracion-cluster/)**
-    *   ([2. Cluster Setup](/CloudNativeGuardiansKCSA/sections/cluster-setup/))
-3.  **[3. Fortalecimiento del Clúster](/CloudNativeGuardiansKCSA/es/sections/fortalecimiento-cluster/)**
-    *   ([3. Cluster Hardening](/CloudNativeGuardiansKCSA/sections/cluster-hardening/))
-4.  **[4. Fortalecimiento del Sistema (Modelo de Amenaza)](/CloudNativeGuardiansKCSA/es/sections/fortalecimiento-sistema/)**
-    *   ([4. System Hardening (Threat Model)](/CloudNativeGuardiansKCSA/sections/system-hardening/))
-5.  **[5. Minimizar Vulnerabilidades de Microservicios](/CloudNativeGuardiansKCSA/es/sections/minimizar-vulnerabilidades-microservicios/)**
-    *   ([5. Minimize Microservice Vulnerabilities](/CloudNativeGuardiansKCSA/sections/minimize-microservice-vulnerabilities/))
-6.  **[6. Seguridad de la Cadena de Suministro](/CloudNativeGuardiansKCSA/es/sections/seguridad-cadena-suministro/)**
-    *   ([6. Supply Chain Security](/CloudNativeGuardiansKCSA/sections/supply-chain-security/))
-7.  **[7. Monitorización, Logging y Seguridad en Runtime](/CloudNativeGuardiansKCSA/es/sections/monitorizacion-logging-runtime-seguridad/)**
-    *   ([7. Monitoring, Logging & Runtime Security](/CloudNativeGuardiansKCSA/sections/monitoring-logging-runtime-security/))
+1.  **[1. Visión General de la Seguridad Cloud Native](/es/sections/vision-general-seguridad-cloud-native/)**
+    *   ([1. Overview of Cloud Native Security](/sections/overview-cloud-native-security/))
+2.  **[2. Configuración del Clúster](/es/sections/configuracion-cluster/)**
+    *   ([2. Cluster Setup](/sections/cluster-setup/))
+3.  **[3. Fortalecimiento del Clúster](/es/sections/fortalecimiento-cluster/)**
+    *   ([3. Cluster Hardening](/sections/cluster-hardening/))
+4.  **[4. Fortalecimiento del Sistema (Modelo de Amenaza)](/es/sections/fortalecimiento-sistema/)**
+    *   ([4. System Hardening (Threat Model)](/sections/system-hardening/))
+5.  **[5. Minimizar Vulnerabilidades de Microservicios](/es/sections/minimizar-vulnerabilidades-microservicios/)**
+    *   ([5. Minimize Microservice Vulnerabilities](/sections/minimize-microservice-vulnerabilities/))
+6.  **[6. Seguridad de la Cadena de Suministro](/es/sections/seguridad-cadena-suministro/)**
+    *   ([6. Supply Chain Security](/sections/supply-chain-security/))
+7.  **[7. Monitorización, Logging y Seguridad en Runtime](/es/sections/monitorizacion-logging-runtime-seguridad/)**
+    *   ([7. Monitoring, Logging & Runtime Security](/sections/monitoring-logging-runtime-security/))
 
 ### Organización del Contenido Bilingüe:
 
