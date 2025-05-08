@@ -139,6 +139,8 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
 
 **Instrucciones:**
 
+
+**Punto de Predicción:** El almacén de datos `etcd` contiene todo el estado del clúster, incluidos los Secrets. ¿Por qué es absolutamente crítico asegurar el canal de comunicación entre el API Server y `etcd`? ¿Qué tipo de ataque podría ocurrir si este canal no estuviera cifrado o autenticado?
 1.  **Verificar Comunicación con Etcd sobre TLS (Configuración del API Server):**
     *   Inspeccione el manifiesto de su API Server (como en el Ejercicio 1.1).
     *   Busque flags relacionados con la comunicación con `etcd`:
@@ -154,12 +156,30 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
     *   **Resultado Esperado:** Comprensión de si y cómo está configurado el cifrado en reposo para `etcd`. En muchos servicios de Kubernetes gestionados, esto lo maneja el proveedor.
     *   **Nota de Seguridad:** Cifrar datos sensibles como Secrets en reposo en `etcd` es una medida de seguridad crítica.
 
+**Tarea de Desafío:**
+Si un atacante obtuviera acceso de lectura a los archivos de datos brutos de `etcd` (por ejemplo, desde una copia de seguridad comprometida o acceso directo al sistema de archivos en un nodo `etcd`) y el cifrado en reposo de `etcd` *no* estuviera habilitado, ¿qué objetos sensibles de Kubernetes podría reconstruir o leer directamente?
+<details>
+  <summary>Haga clic para ver ejemplos clave</summary>
+  <p>
+  Potencialmente podría reconstruir o leer:
+  <ul>
+    <li>Todos los Kubernetes Secrets (que por defecto solo están codificados en base64 en etcd).</li>
+    <li>Tokens de Service Account.</li>
+    <li>ConfigMaps que contengan configuración sensible.</li>
+    <li>La configuración completa de todos los objetos API (Pods, Deployments, Services, etc.).</li>
+  </ul>
+  Esto llevaría a un compromiso total del clúster.
+  </p>
+</details>
+
 ## Ejercicio 4: Contexto de Seguridad del Pod (Pod Security Context)
 
 **Objetivo:** Aplicar y observar los efectos de las configuraciones de `SecurityContext` en los Pods.
 
 **Instrucciones:**
 
+
+**Punto de Predicción:** Al buscar el principio de menor privilegio, ¿qué configuraciones de `securityContext` considera más cruciales para definir en un Pod y sus contenedores? Considere las configuraciones relacionadas con la identidad del usuario y el acceso al sistema de archivos.
 1.  **Desplegar un Pod con un `SecurityContext` Restrictivo:**
     *   Cree un archivo YAML (por ejemplo, `restricted-pod.yaml`):
         ```yaml
@@ -205,6 +225,15 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
     *   **Resultado Esperado:** El Pod debería ejecutarse correctamente. Los comandos dentro del contenedor deberían reflejar `runAsUser` y `runAsGroup`. El sistema de archivos raíz debería ser de solo lectura.
     *   **Nota de Seguridad:** `SecurityContext` es vital para aplicar el principio de menor privilegio para las cargas de trabajo.
 
+**Punto de Verificación:**
+En `restricted-pod.yaml`, se configuró `readOnlyRootFilesystem: true` para el contenedor. Si ejecuta `exec` en el `restricted-pod` (una vez que esté en ejecución y los comandos estén disponibles), ¿qué comando podría intentar ejecutar para confirmar que el sistema de archivos raíz es efectivamente de solo lectura? ¿Qué error esperaría?
+<details>
+  <summary>Haga clic para ver una sugerencia</summary>
+  <p>
+  Podría intentar un comando como `touch /test-file.txt`. Esperaría un mensaje de error similar a "Read-only file system" (Sistema de archivos de solo lectura).
+  </p>
+</details>
+
 2.  **Observar un Pod Fallando Debido a `runAsNonRoot` (si la imagen se ejecuta como root):**
     *   Cree `violating-pod.yaml`:
         ```yaml
@@ -226,12 +255,28 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
     *   **Resultado Esperado:** El Pod debería fallar al iniciarse (por ejemplo, `CreateContainerError` o estado similar). Los eventos deberían indicar una violación de restricción del contexto de seguridad porque la imagen intenta ejecutarse como root.
     *   **Nota de Seguridad:** Esto demuestra cómo `runAsNonRoot` puede evitar que las imágenes se ejecuten como root. Esto a menudo requiere que las imágenes estén construidas para admitir la ejecución como usuarios no root.
 
+**Tarea de Desafío:**
+Imagine que tiene un Dockerfile para una aplicación que, por defecto, ejecuta su proceso principal como root. ¿Qué cambios necesitaría hacer en el Dockerfile para permitir que se ejecute correctamente cuando se establecen `runAsNonRoot: true` y un `runAsUser: 1001` específico en el `securityContext` del Pod?
+<details>
+  <summary>Haga clic para ver consideraciones clave del Dockerfile</summary>
+  <p>
+  Las consideraciones clave en el Dockerfile incluirían:
+  <ul>
+    <li>Crear un usuario y grupo no root (por ejemplo, `RUN addgroup -S appgroup && adduser -S appuser -G appgroup`).</li>
+    <li>Asegurar que los archivos de la aplicación y cualquier directorio en el que la aplicación necesite escribir (como directorios temporales o de registro dentro del contenedor) sean propiedad de este `appuser:appgroup` (por ejemplo, usando `COPY --chown=appuser:appgroup . /app` o `RUN chown -R appuser:appgroup /alguna/ruta`).</li>
+    <li>Cambiar a este usuario usando la instrucción `USER appuser` antes del `CMD` o `ENTRYPOINT`.</li>
+  </ul>
+  </p>
+</details>
+
 ## Ejercicio 5: Seguridad de Tokens de Service Account
 
 **Objetivo:** Comprender y gestionar el uso de tokens de Service Account en Pods.
 
 **Instrucciones:**
 
+
+**Punto de Predicción:** Por defecto, Kubernetes monta un token de Service Account en cada Pod. ¿Qué tipo de información contiene este token (típicamente un JWT) y por qué cree que existe este comportamiento predeterminado?
 1.  **Inspeccionar Token de Service Account Predeterminado en un Pod:**
     *   Despliegue un Pod simple: `kubectl run test-pod --image=busybox --restart=Never -- sh -c "sleep 3600"`
     *   Ejecute `exec` en el Pod: `kubectl exec -it test-pod -- sh`
@@ -265,6 +310,21 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
         ```
     *   **Resultado Esperado:** El directorio `/var/run/secrets/kubernetes.io/serviceaccount/` no debería existir o estar vacío.
     *   **Nota de Seguridad:** Si un Pod no necesita interactuar con el API Server, deshabilite el montaje automático de tokens.
+
+**Punto de Verificación:**
+¿Puede pensar en ejemplos de cargas de trabajo o aplicaciones que típicamente *no* necesitarían interactuar con el API server de Kubernetes y para las cuales `automountServiceAccountToken: false` sería una buena práctica de seguridad?
+<details>
+  <summary>Haga clic para ver algunos ejemplos</summary>
+  <p>
+  Ejemplos incluyen:
+  <ul>
+    <li>Servidores web estáticos que solo sirven HTML/CSS/JS.</li>
+    <li>Trabajos por lotes puramente computacionales que no consultan ni modifican el estado del clúster.</li>
+    <li>Bases de datos a las que acceden las aplicaciones pero que no se gestionan a sí mismas a través de la API de K8s.</li>
+    <li>Muchas aplicaciones simples que no necesitan descubrir otros servicios a través de la API ni gestionar otros recursos.</li>
+  </ul>
+  </p>
+</details>
 
 3.  **Usar una Service Account Dedicada con Permisos Mínimos:**
     *   Cree una ServiceAccount: `kubectl create serviceaccount my-app-sa`
@@ -309,12 +369,40 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
     *   **Resultado Esperado:** El Pod debería poder listar pods usando su token. Si intentara otras acciones, serían denegadas.
     *   **Nota de Seguridad:** Siempre cree cuentas de servicio dedicadas con el menor privilegio necesario.
 
+**Tarea de Desafío:**
+1. ¿Qué comando `kubectl` usaría para listar todas las ServiceAccounts en el namespace `kube-system`?
+2. Si tiene una ServiceAccount llamada `my-sa` en el namespace `my-ns`, ¿cómo podría (conceptualmente, o con `kubectl describe`) intentar averiguar a qué Roles o ClusterRoles está vinculada mediante RoleBindings o ClusterRoleBindings?
+<details>
+  <summary>Haga clic para ver soluciones/enfoques</summary>
+  <p>
+  1. Para listar ServiceAccounts en `kube-system`:
+     ```bash
+     kubectl get serviceaccounts -n kube-system
+     # o
+     kubectl get sa -n kube-system
+     ```
+  2. Para encontrar bindings para `my-sa` en `my-ns`:
+     *   Listar todos los RoleBindings en `my-ns` y verificar su campo `subjects`:
+         ```bash
+         kubectl get rolebindings -n my-ns -o yaml 
+         ```
+         (Luego inspeccionar manualmente o usar `grep` para `my-sa`).
+     *   Listar todos los ClusterRoleBindings y verificar su campo `subjects` (asegurándose de verificar si el namespace del sujeto coincide con `my-ns` si se especifica):
+         ```bash
+         kubectl get clusterrolebindings -o yaml
+         ```
+     *   `kubectl describe serviceaccount my-sa -n my-ns` a veces puede mostrar tokens, pero no directamente los roles a los que está vinculada. Verificar los bindings es más directo para los permisos.
+  </p>
+</details>
+
 ## Ejercicio 6: Perfiles de Seguridad del Entorno de Ejecución de Contenedores (Conceptual/Verificación)
 
 **Objetivo:** Comprender cómo aplicar perfiles seccomp básicos.
 
 **Instrucciones:**
 
+
+**Punto de Predicción:** Seccomp (secure computing mode) es una característica del kernel de Linux que restringe las llamadas al sistema que un proceso puede realizar. ¿Por qué filtrar las llamadas al sistema es una medida de seguridad importante para los contenedores?
 1.  **Desplegar un Pod con Perfil Seccomp `RuntimeDefault`:**
     *   Cree `seccomp-pod.yaml`:
         ```yaml
@@ -336,6 +424,15 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
     *   **Resultado Esperado:** El Pod debería ejecutarse correctamente. El perfil `RuntimeDefault` es generalmente seguro y recomendado como base.
     *   **Nota de Seguridad:** `RuntimeDefault` usa el perfil seccomp definido por el entorno de ejecución de contenedores, que suele ser un buen punto de partida para el filtrado de llamadas al sistema. Para mayor seguridad, podrían necesitarse perfiles personalizados (más restrictivos).
 
+**Punto de Verificación:**
+El perfil seccomp `RuntimeDefault` es proporcionado por el entorno de ejecución de contenedores (por ejemplo, containerd, CRI-O). ¿Dónde podría buscar (conceptualmente) en un nodo o en la documentación del entorno de ejecución de contenedores para averiguar qué bloquea o permite realmente este perfil predeterminado?
+<details>
+  <summary>Haga clic para ver una pista</summary>
+  <p>
+  Normalmente necesitaría consultar la documentación de su entorno de ejecución de contenedores específico (como containerd o CRI-O). Algunos entornos de ejecución podrían exponer la ruta del perfil predeterminado en su configuración, o podría estar compilado. Para Docker, el perfil seccomp predeterminado está bien documentado y se puede encontrar en su código fuente o documentación.
+  </p>
+</details>
+
 2.  **Discusión sobre AppArmor/SELinux (Conceptual):**
     *   **Verificación (Alto Nivel):**
         *   AppArmor: En un nodo, podría verificar `sudo aa-status` para ver los perfiles AppArmor cargados.
@@ -343,6 +440,20 @@ Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el names
     *   **Interacción con Pods:** Kubernetes permite especificar perfiles AppArmor mediante anotaciones (`container.apparmor.security.beta.kubernetes.io/<container_name>: <profile_ref>`) u opciones SELinux en `securityContext.seLinuxOptions`.
     *   **Discusión:** ¿Por qué son importantes estos sistemas MAC? (Proporcionan una capa adicional de defensa al restringir lo que los procesos pueden hacer, incluso si se ejecutan como root o tienen algunas capabilities).
     *   **Nota de Seguridad:** Implementar y gestionar perfiles AppArmor/SELinux puede ser complejo pero ofrece un fortalecimiento robusto. Para KCSA, es importante comprender su propósito y cómo Kubernetes puede aprovecharlos.
+
+**Tarea de Desafío:**
+¿Cuál es una diferencia clave en lo que controla Seccomp versus lo que controlan AppArmor o SELinux (como sistemas de Control de Acceso Obligatorio - MAC)?
+<details>
+  <summary>Haga clic para ver la diferencia clave</summary>
+  <p>
+  Una diferencia clave es:
+  <ul>
+    <li><strong>Seccomp:</strong> Principalmente filtra <em>qué llamadas al sistema</em> puede realizar un proceso. Se trata de restringir la interacción del proceso con el kernel en la interfaz de llamadas al sistema.</li>
+    <li><strong>AppArmor/SELinux (MAC):</strong> Controlan el <em>acceso a los recursos</em> (como archivos, puertos de red, capabilities) basándose en políticas y etiquetas definidas para sujetos (procesos) y objetos (recursos). Proporcionan un modelo de control de acceso más completo más allá del simple filtrado de llamadas al sistema.</li>
+  </ul>
+  A menudo se utilizan juntos para la defensa en profundidad.
+  </p>
+</details>
 
 Estos ejercicios proporcionan un punto de partida para explorar la seguridad de los componentes del clúster de Kubernetes. Recuerde limpiar cualquier recurso que cree después de completar los laboratorios (por ejemplo, `kubectl delete pod test-pod`).
 
