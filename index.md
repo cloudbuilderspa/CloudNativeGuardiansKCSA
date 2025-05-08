@@ -20,14 +20,20 @@ The content of this repository is organized into thematic sections, each coverin
 
 ### Main Sections:
 
-1.  **[1. Overview of Cloud Native Security](/CloudNativeGuardiansKCSA/sections/overview-cloud-native-security/)** 
-    *   ([Visión General de la Seguridad Cloud Native - Español](/CloudNativeGuardiansKCSA/es/sections/vision-general-seguridad-cloud-native/))
-2.  **`2_Cluster_Setup`**: Secure configuration of Kubernetes clusters.
-3.  **`3_Cluster_Hardening`**: Techniques and best practices for strengthening the security of Kubernetes clusters.
-4.  **`4_System_Hardening`**: Strengthening security at the operating system and cluster node level.
-5.  **`5_Minimize_Microservice_Vulnerabilities`**: Strategies to reduce vulnerabilities in microservices.
-6.  **`6_Supply_Chain_Security`**: Securing the software supply chain, from code to deployment.
-7.  **`7_Monitoring_Logging_and_Runtime_Security`**: Monitoring, logging, and runtime security for cloud native applications.
+1.  **[1. Overview of Cloud Native Security](/CloudNativeGuardiansKCSA/sections/overview-cloud-native-security/)**
+    *   ([1. Visión General de la Seguridad Cloud Native](/CloudNativeGuardiansKCSA/es/sections/vision-general-seguridad-cloud-native/))
+2.  **[2. Cluster Setup](/CloudNativeGuardiansKCSA/sections/cluster-setup/)**
+    *   ([2. Configuración del Clúster](/CloudNativeGuardiansKCSA/es/sections/configuracion-cluster/))
+3.  **[3. Cluster Hardening](/CloudNativeGuardiansKCSA/sections/cluster-hardening/)**
+    *   ([3. Fortalecimiento del Clúster](/CloudNativeGuardiansKCSA/es/sections/fortalecimiento-cluster/))
+4.  **[4. System Hardening (Threat Model)](/CloudNativeGuardiansKCSA/sections/system-hardening/)**
+    *   ([4. Fortalecimiento del Sistema (Modelo de Amenaza)](/CloudNativeGuardiansKCSA/es/sections/fortalecimiento-sistema/))
+5.  **[5. Minimize Microservice Vulnerabilities](/CloudNativeGuardiansKCSA/sections/minimize-microservice-vulnerabilities/)**
+    *   ([5. Minimizar Vulnerabilidades de Microservicios](/CloudNativeGuardiansKCSA/es/sections/minimizar-vulnerabilidades-microservicios/))
+6.  **[6. Supply Chain Security](/CloudNativeGuardiansKCSA/sections/supply-chain-security/)**
+    *   ([6. Seguridad de la Cadena de Suministro](/CloudNativeGuardiansKCSA/es/sections/seguridad-cadena-suministro/))
+7.  **[7. Monitoring, Logging & Runtime Security](/CloudNativeGuardiansKCSA/sections/monitoring-logging-runtime-security/)**
+    *   ([7. Monitorización, Logging y Seguridad en Runtime](/CloudNativeGuardiansKCSA/es/sections/monitorizacion-logging-runtime-seguridad/))
 
 ### Bilingual Content Organization:
 

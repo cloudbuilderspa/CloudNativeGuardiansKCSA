@@ -168,7 +168,7 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
 
 ## Ejercicio 4: Simulación de Respuesta Básica a Incidentes: Aislamiento de un Pod
 
-**Objetivo:** Comprender cómo usar Network Policies para la contención básica de incidentes.
+**Objetivo:** Comprender cómo usar Network Policies (Políticas de Red) para la contención básica de incidentes.
 
 **Instrucciones:**
 
@@ -268,26 +268,26 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   **Regla 1: Shell generado en un contenedor**
         ```yaml
         - rule: Terminal shell in container
-          desc: A shell was spawned in a container with an attached terminal.
+          desc: A shell was spawned in a container with an attached terminal. # Traducción: Se generó un shell en un contenedor con una terminal adjunta.
           condition: evt.type = execve and evt.dir = < and proc.tty != 0 and container.id != host and proc.name in (bash, sh, zsh, ksh, fish, dash, tcsh, csh)
-          output: "Shell spawned in a container (user=%user.name container_id=%container.id container_name=%container.name image=%container.image.repository proc_name=%proc.name parent=%proc.pname cmdline=%proc.cmdline terminal=%proc.tty)"
+          output: "Shell spawned in a container (user=%user.name container_id=%container.id container_name=%container.name image=%container.image.repository proc_name=%proc.name parent=%proc.pname cmdline=%proc.cmdline terminal=%proc.tty)" # Traducción: Shell generado en un contenedor (...)
           priority: WARNING
         ```
     *   **Regla 2: Escritura debajo del directorio raíz sensible**
         ```yaml
         - rule: Write below root dir
-          desc: An attempt to write to a file below /root
+          desc: An attempt to write to a file below /root # Traducción: Intento de escribir en un archivo debajo de /root
           condition: evt.type = open and evt.dir = < and fd.name startswith /root and (evt.arg.flags contains O_WRONLY or evt.arg.flags contains O_RDWR)
-          output: "File created/modified below /root by (user=%user.name command=%proc.cmdline file=%fd.name)"
+          output: "File created/modified below /root by (user=%user.name command=%proc.cmdline file=%fd.name)" # Traducción: Archivo creado/modificado debajo de /root por (...)
           priority: ERROR
         ```
     *   **Regla 3: Conexión de red saliente inesperada**
         ```yaml
         - rule: Unexpected outbound connection
-          desc: An outbound network connection was made from a container to an unexpected destination or port.
+          desc: An outbound network connection was made from a container to an unexpected destination or port. # Traducción: Se realizó una conexión de red saliente desde un contenedor a un destino o puerto inesperado.
           condition: syscall.type = connect and evt.dir = > and fd.typechar = 4 and fd.sip != private_ipv4_ चाँडै and not trusted_connection
           # 'trusted_connection' sería una macro que define conexiones permitidas
-          output: "Unexpected outbound connection (container=%container.name image=%container.image.repository connection=%fd.name)"
+          output: "Unexpected outbound connection (container=%container.name image=%container.image.repository connection=%fd.name)" # Traducción: Conexión saliente inesperada (...)
           priority: NOTICE
         ```
 
@@ -304,4 +304,3 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   Comprender qué monitorizan estas herramientas (syscalls, red, acceso a archivos) es clave para apreciar su valor.
 
 Esta guía de laboratorio debería darle una mejor comprensión práctica y conceptual de la monitorización, el registro y la seguridad en tiempo de ejecución en Kubernetes. Recuerde aplicar siempre estos conceptos dentro del contexto de los requisitos de seguridad específicos y la tolerancia al riesgo de su organización.
-
