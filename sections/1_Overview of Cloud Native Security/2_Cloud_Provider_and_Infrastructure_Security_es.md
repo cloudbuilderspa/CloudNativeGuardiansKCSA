@@ -1,14 +1,12 @@
-## Cloud Provider and Infrastructure Security:
-
-### English:
-
-Cloud Provider Security: Involves the secure configuration of cloud services used by Kubernetes, including networking, storage, and identity and access management (IAM).
-
-Encryption: Use of TLS to encrypt communications within the cluster and between the cluster and its clients.
-
-Authentication and Authorization: Implementation of robust authentication and authorization methods to control access to cluster resources.
-
-### Spanish:
+---
+layout: default
+title: "Seguridad del Proveedor de Nube e Infraestructura"
+parent: "1. Visión General de la Seguridad Cloud Native" 
+nav_order: 2
+permalink: /es/sections/vision-general-seguridad-cloud-native/seguridad-proveedor-nube-infra/
+lang: es
+---
+# Seguridad del Proveedor de Nube e Infraestructura
 
 Seguridad del Proveedor de la Nube: Involucra la configuración segura de los servicios en la nube utilizados por Kubernetes, incluyendo la red, el almacenamiento y la gestión de identidades y accesos (IAM).
 

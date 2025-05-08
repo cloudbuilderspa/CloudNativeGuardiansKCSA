@@ -44,6 +44,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
         *   What's the problem with `COPY . /app`?
         *   What's the risk of running the application as the root user (default)?
 
+**✨ Prediction Point ✨**
+*Before looking at the improved Dockerfile, if you were to make just *one* change to `Dockerfile.insecure` that would significantly reduce its attack surface from a software composition perspective, what would it be and why?*
+
 2.  **Review an Improved Dockerfile Example (Multi-Stage):**
     *   Consider the following `Dockerfile.improved`:
         ```dockerfile
@@ -84,11 +87,17 @@ This lab guide provides exercises focused on understanding and analyzing key asp
         *   How does creating and using a non-root user (`appuser`) enhance security?
         *   Why is `COPY --from=builder /app /app` (or more specific paths) better than `COPY . /app` in the production stage?
 
+**✅ Verification Point ✅**
+*In `Dockerfile.improved`, why is the step `RUN addgroup -S appgroup && adduser -S appuser -G appgroup` followed by `USER appuser` a more secure practice than simply running the application as root? What specific risks does this mitigate?*
+
 3.  **Security Notes & KCSA Takeaways:**
     *   Always strive for minimal base images (Alpine, distroless).
     *   Use multi-stage builds to keep production images lean and free of build tools.
     *   Run applications as non-root users.
     *   Be explicit about files copied into the image; avoid copying unnecessary files (like `.git` directories, sensitive config files).
+
+**🚀 Challenge Task 🚀**
+*Consider the `Dockerfile.improved`. If the Python application `app.py` needed to write temporary log files to a `/logs` directory within the container, what additional Dockerfile instruction(s) would be needed to ensure the non-root `appuser` has permission to do so, without granting excessive permissions?*
 
 ## Exercise 2: Interpreting Image Vulnerability Scan Results (Conceptual)
 
@@ -122,6 +131,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
         Description: ...
         ```
 
+**✨ Prediction Point ✨**
+*Given the scan results, if your organization has a policy to block deployments with any CRITICAL vulnerabilities, but allows HIGH vulnerabilities if a fix is not yet available in a stable base image, how would you proceed with the `nginx:1.18-alpine` image based on this output?*
+
 2.  **Analysis and Discussion:**
     *   Identify the CRITICAL and HIGH severity vulnerabilities.
     *   For `CVE-2021-XXXX` in `libcrypto1.1`, what is the installed version and what is the fixed version?
@@ -132,11 +144,17 @@ This lab guide provides exercises focused on understanding and analyzing key asp
         *   Consider blocking deployment if critical vulnerabilities cannot be immediately remediated.
     *   Why is it important to scan not just direct dependencies but also OS packages in the base image?
 
+**✅ Verification Point ✅**
+*Explain the difference between a vulnerability in an OS package (like `libcrypto1.1`) versus a vulnerability in the application software itself (like `nginx`). Why might the remediation path differ for these two types of vulnerabilities found in the same image?*
+
 3.  **Security Notes & KCSA Takeaways:**
     *   Image scanning is essential for identifying known vulnerabilities.
     *   Focus on remediating CRITICAL and HIGH severity vulnerabilities first.
     *   Scanning should be integrated into CI/CD pipelines and registries.
     *   Understand that "Fixed Version" indicates a patch is available.
+
+**🚀 Challenge Task 🚀**
+*Imagine a scenario where a vulnerability scanner reports a "MEDIUM" severity vulnerability in a library, but your development team assesses that your application does not use the specific vulnerable function within that library. What process or documentation would be essential to justify not immediately patching this vulnerability, and what are the ongoing responsibilities if you choose to accept this risk?*
 
 ## Exercise 3: Understanding Image Signing and Admission Control (Conceptual)
 
@@ -148,6 +166,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
     *   **CI/CD Pipeline:** After an image is built and tested, a tool like `Cosign` (from Sigstore) is used to sign the image.
     *   **Signature Storage:** The signature can be stored in the OCI registry alongside the image or in a transparency log like Rekor.
     *   **Key Management:** The private key used for signing must be securely managed. Keyless signing (using OIDC identities) is an option with Sigstore.
+
+**✨ Prediction Point ✨**
+*If an attacker manages to compromise the CI/CD pipeline's build server *after* an image is built but *before* it's signed, what kind of malicious action could they take regarding the image, and how would image signing (if properly implemented later in the step) help mitigate this?*
 
 2.  **Admission Control for Signature Verification (Conceptual Example):**
     *   Review a simplified Kyverno policy manifest snippet (do not apply):
@@ -178,6 +199,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
         *   What happens if an unsigned image or an image signed by an untrusted key is deployed? (Deployment is blocked due to `validationFailureAction: Enforce`).
         *   Where does the public key for verification come from? (It's configured in the policy and should correspond to the private key used for signing in CI/CD).
     *   **Security Note:** Image signing and admission control provide strong guarantees that only trusted and verified images run in your cluster.
+
+**🚀 Challenge Task 🚀**
+*Besides verifying signatures using a public key, tools like Kyverno can often verify images against other attestations (e.g., from Sigstore's keyless signing). If an image was signed "keylessly" using a CI/CD system's OIDC identity, what specific details would an admission controller policy need to check to ensure the image was signed by *your organization's* trusted CI/CD pipeline and not a malicious actor's pipeline?*
 
 ## Exercise 4: Reviewing a Software Bill of Materials (SBOM) Example
 
@@ -223,12 +247,18 @@ This lab guide provides exercises focused on understanding and analyzing key asp
       ]
     }
     ```
+
+**✨ Prediction Point ✨**
+*Looking at the SBOM, if `requests` version `2.28.1` was found to have a critical vulnerability, but `urllib3` version `1.26.12` was fine, would `my-web-app` still be considered affected? Why is understanding the full dependency tree important?*
 2.  **Analysis and Discussion:**
     *   Identify a direct dependency of `my-web-app`. (e.g., `requests`)
     *   Identify a transitive dependency. (e.g., `urllib3` is a dependency of `requests`)
     *   If a new CVE is announced for `urllib3` version `1.26.12`, how would this SBOM help? (It allows you to quickly see that `my-web-app` is affected because it uses `requests` which in turn uses the vulnerable `urllib3`).
     *   What other information is present (tool used, timestamp, OS)?
     *   **Security Note:** SBOMs provide transparency into software components, aiding in vulnerability management, license compliance, and understanding supply chain risks.
+
+**🚀 Challenge Task 🚀**
+*SBOMs can be generated in various formats (SPDX, CycloneDX, etc.). Research and name one key advantage of using a standardized SBOM format compared to a proprietary or custom-text format for dependencies. How does this advantage contribute to better overall supply chain security management?*
 
 ## Exercise 5: Secure CI/CD Practices (Conceptual Discussion)
 
@@ -242,6 +272,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
     *   Pushing the image to a private container registry.
     *   Deploying the application (updating a Deployment) to a Kubernetes cluster.
 
+**✨ Prediction Point ✨**
+*Of the four responsibilities listed for the CI/CD pipeline, which step, if compromised, would likely grant an attacker the most direct and widespread ability to deploy malicious workloads into the Kubernetes cluster?*
+
 2.  **Discussion Points:**
     *   **Registry Credentials:**
         *   How should the pipeline authenticate to the private container registry to push the image? (e.g., using short-lived tokens, service account credentials for the CI/CD system, platform's built-in secret management like GitHub Actions secrets).
@@ -254,6 +287,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
     *   **Pipeline Integrity:** How would you protect the pipeline definition itself (e.g., `Jenkinsfile`, `.github/workflows/`) from unauthorized modifications? (Code reviews, branch protection on the SCM repository storing these files).
     *   **Security Note:** CI/CD pipelines are critical infrastructure and a prime target. Securing them with least privilege, secret management, and integrity checks is vital.
 
+**🚀 Challenge Task 🚀**
+*A CI/CD pipeline uses a long-lived static token to authenticate to Kubernetes. Describe a more secure alternative authentication method the pipeline could use, especially when running on a cloud provider or a Kubernetes cluster that supports workload identity federation. What are the benefits of this alternative?*
+
 ## Exercise 6: Analyzing an Artifact Repository Configuration (Conceptual)
 
 **Objective:** To consider security configurations for an artifact (image) repository.
@@ -261,6 +297,9 @@ This lab guide provides exercises focused on understanding and analyzing key asp
 **Instructions (Discussion Points):**
 
 1.  **Scenario:** An organization uses a private image repository (e.g., Harbor, Artifactory, AWS ECR, GCP Artifact Registry).
+
+**✨ Prediction Point ✨**
+*If an artifact repository does *not* support integrated vulnerability scanning, what is a key challenge organizations face in ensuring their stored images remain secure over time, even if they were scanned as "clean" during CI/CD?*
 
 2.  **Discussion Points:**
     *   **Access Controls:**
@@ -271,10 +310,16 @@ This lab guide provides exercises focused on understanding and analyzing key asp
         *   Why is it beneficial for the repository itself to support or integrate with vulnerability scanners? (Can re-scan images periodically as new CVEs are found, can provide a central dashboard of vulnerabilities across all stored images).
     *   **Image Retention and Cleanup Policies:**
         *   What are the benefits of having policies to delete old, unused, or highly vulnerable images? (Reduces storage costs, reduces risk of deploying known-vulnerable software by mistake).
+
+**✅ Verification Point ✅**
+*Regarding access controls for an image repository, why is it important to differentiate between permissions to `push` images and permissions to `pull` images? Provide an example of a principal that might only need `pull` access and one that would need `push` access.*
     *   **Replication and Proxying:**
         *   If the repository replicates images to other regions/registries, how must this be secured? (Secure channels, integrity checks).
         *   If the repository acts as a pull-through cache for public registries (like Docker Hub), what policies should be in place? (e.g., only cache/proxy official images, scan proxied images).
     *   **Security Note:** A well-secured artifact repository is a key control point in the software supply chain.
+
+**🚀 Challenge Task 🚀**
+*Many organizations use immutable tags for their production container images (e.g., `myapp:1.2.3-prod` should never be overwritten). How can an image repository's features (or lack thereof) support or hinder the enforcement of immutable tags? What is a risk if tags are mutable in a production context?*
 
 These conceptual exercises should help solidify your understanding of the different facets of software supply chain security relevant to KCSA.
 

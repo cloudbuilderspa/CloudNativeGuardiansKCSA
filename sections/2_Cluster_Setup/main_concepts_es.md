@@ -1,3 +1,11 @@
+---
+layout: default
+title: Conceptos Principales
+parent: "2. Configuración del Clúster"
+nav_order: 1
+permalink: /es/sections/2-configuracion-cluster/conceptos-principales/
+lang: es
+---
 # Conceptos Principales de Seguridad de los Componentes del Clúster de Kubernetes
 
 Comprender la seguridad de cada componente dentro de un clúster de Kubernetes es fundamental para mantener un entorno cloud native robusto y resiliente. El examen Kubernetes and Cloud Native Security Associate (KCSA) enfatiza los aspectos de seguridad de estos componentes centrales. Este documento describe los principales conceptos de seguridad relacionados con la configuración y protección de los componentes de su clúster de Kubernetes, basado en la guía de estudio KCSA.
@@ -9,6 +17,54 @@ El plano de control es el centro neurálgico de Kubernetes, tomando decisiones g
 ### Seguridad del API Server
 
 *   **Rol:** El API Server es el front-end del plano de control de Kubernetes, exponiendo la API de Kubernetes. Procesa solicitudes REST, las valida y actualiza los objetos correspondientes en `etcd`. Todas las tareas administrativas e interacciones con el clúster pasan por el API Server.
+
+{% raw %}
+<div class="mermaid">
+graph LR
+    subgraph "Clients"
+        kubectl["kubectl (User/Admin)"]
+    end
+
+    subgraph "Control Plane"
+        APIServer["Kubernetes API Server"]
+        ControllerManager["Controller Manager"]
+        Scheduler["Scheduler"]
+        Etcd["etcd (Cluster Data Store)"]
+    end
+
+    subgraph "Worker Nodes"
+        Kubelet1["Kubelet (Node 1)"]
+        Kubelet2["Kubelet (Node N)"]
+    end
+
+    kubectl -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> kubectl
+
+    ControllerManager -- "TLS" --> APIServer
+    APIServer -- "TLS" --> ControllerManager
+
+    Scheduler -- "TLS" --> APIServer
+    APIServer -- "TLS" --> Scheduler
+
+    APIServer -- "mTLS (Client Cert AuthN)" --> Etcd
+
+    Kubelet1 -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> Kubelet1
+
+    Kubelet2 -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> Kubelet2
+
+    classDef controlPlane fill:#D6EAF8,stroke:#333,stroke-width:2px;
+    class APIServer,ControllerManager,Scheduler,Etcd controlPlane;
+
+    classDef clients fill:#E8DAEF,stroke:#333,stroke-width:2px;
+    class kubectl clients;
+
+    classDef nodes fill:#D5F5E3,stroke:#333,stroke-width:2px;
+    class Kubelet1,Kubelet2 nodes;
+</div>
+{% endraw %}
+
 *   **Consideraciones Clave de Seguridad y Mejores Prácticas:**
     *   **Autenticación (Authentication):** Implementar mecanismos de autenticación robustos. Kubernetes admite varios métodos como certificados de cliente, tokens portadores (bearer tokens) e integración con proveedores de identidad externos (OIDC). El acceso anónimo generalmente debe estar deshabilitado.
     *   **Autorización (Authorization):** Utilizar modelos de autorización robustos como el Control de Acceso Basado en Roles (RBAC) para asegurar que los usuarios y servicios solo tengan los permisos necesarios para sus tareas (Principio de Menor Privilegio). Evitar asignaciones (bindings) excesivamente permisivas a nivel de clúster.

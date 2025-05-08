@@ -13,13 +13,20 @@ El contenido de este repositorio está organizado en secciones temáticas, cada 
 
 ### Secciones Principales:
 
-1.  **`1_Overview of Cloud Native Security`**: Introducción a los conceptos fundamentales de la seguridad en entornos nativos de la nube, incluyendo los 4Cs, seguridad del proveedor de la nube, frameworks de control y más.
-2.  **`2_Cluster_Setup`**: Configuración segura de clústeres de Kubernetes.
-3.  **`3_Cluster_Hardening`**: Técnicas y mejores prácticas para fortalecer la seguridad de los clústeres de Kubernetes.
-4.  **`4_System_Hardening`**: Fortalecimiento de la seguridad a nivel de sistema operativo y nodos del clúster.
-5.  **`5_Minimize_Microservice_Vulnerabilities`**: Estrategias para reducir las vulnerabilidades en microservicios.
-6.  **`6_Supply_Chain_Security`**: Aseguramiento de la cadena de suministro de software, desde el código hasta el despliegue.
-7.  **`7_Monitoring_Logging_and_Runtime_Security`**: Monitorización, registro y seguridad en tiempo de ejecución para aplicaciones nativas de la nube.
+1.  **[1. Visión General de la Seguridad Cloud Native](/es/sections/vision-general-seguridad-cloud-native/)**
+    *   ([1. Overview of Cloud Native Security](/sections/overview-cloud-native-security/))
+2.  **[2. Configuración del Clúster](/es/sections/2-configuracion-cluster/)**
+    *   ([2. Cluster Setup](/sections/cluster-setup/))
+3.  **[3. Fortalecimiento del Clúster](/es/sections/fortalecimiento-cluster/)**
+    *   ([3. Cluster Hardening](/sections/cluster-hardening/))
+4.  **[4. Fortalecimiento del Sistema (Modelo de Amenaza)](/es/sections/fortalecimiento-sistema/)**
+    *   ([4. System Hardening (Threat Model)](/sections/system-hardening/))
+5.  **[5. Minimizar Vulnerabilidades de Microservicios](/es/sections/minimizar-vulnerabilidades-microservicios/)**
+    *   ([5. Minimize Microservice Vulnerabilities](/sections/minimize-microservice-vulnerabilities/))
+6.  **[6. Seguridad de la Cadena de Suministro](/es/sections/seguridad-cadena-suministro/)**
+    *   ([6. Supply Chain Security](/sections/supply-chain-security/))
+7.  **[7. Monitorización, Logging y Seguridad en Runtime](/es/sections/monitorizacion-logging-runtime-seguridad/)**
+    *   ([7. Monitoring, Logging & Runtime Security](/sections/monitoring-logging-runtime-security/))
 
 ### Organización del Contenido Bilingüe:
 

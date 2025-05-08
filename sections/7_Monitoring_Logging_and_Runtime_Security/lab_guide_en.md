@@ -39,6 +39,9 @@ This lab guide provides exercises to help you understand key aspects of monitori
         *   In the sample policy, why are `pods/exec` and `secrets` modifications logged at `RequestResponse` level? (To capture full details of potentially high-risk operations).
         *   Why are other requests logged at `Metadata`? (To reduce log volume while still capturing essential event information).
 
+**✨ Prediction Point ✨**
+*If an attacker successfully creates a new `ClusterRoleBinding` that grants them `cluster-admin` privileges, which rule in the sample `audit-policy-sample.yaml` would log this event, and at what level of detail?*
+
 2.  **Task 2 (If Possible): Finding an Event in Audit Logs**
     *   **Note:** Accessing raw audit logs depends heavily on your Kubernetes setup (Minikube, Kind, managed cloud service). For Minikube, you might `minikube ssh` and find logs typically in `/var/log/kubernetes/audit.log` or similar, if enabled.
     *   If accessible:
@@ -56,10 +59,16 @@ This lab guide provides exercises to help you understand key aspects of monitori
         *   `responseStatus.code`: The HTTP status code of the response.
     *   **Discussion:** Why are audit logs crucial for security monitoring, incident investigation, and compliance?
 
+**✅ Verification Point ✅**
+*Based on the observed fields (or conceptual understanding), what specific audit log field would be most critical for determining *which user or service account* initiated a potentially malicious API request (e.g., deleting a critical Secret)?*
+
 3.  **Security Notes & KCSA Takeaways:**
     *   Audit logs are a primary source for detecting unauthorized API activity.
     *   A well-defined audit policy is essential to capture meaningful events without excessive noise.
     *   Logs should be securely stored and regularly reviewed or analyzed by automated systems.
+
+**🚀 Challenge Task 🚀**
+*Imagine your audit policy is set to log `pods/exec` events at the `Metadata` level only. An attacker gains access to a running pod and uses `kubectl exec` into it to run malicious commands. What crucial information about the attacker's actions *inside the pod* would be missing from the audit logs with this policy, and what audit level would be needed to capture it?*
 
 ## Exercise 2: Application Log Analysis for Security Events
 
@@ -93,6 +102,9 @@ This lab guide provides exercises to help you understand key aspects of monitori
         ```
     *   Apply: `kubectl apply -f logging-app-pod.yaml -n runtime-lab`
 
+**✨ Prediction Point ✨**
+*Before viewing the logs, which specific log entry from the `sample-logging-app`'s commands do you anticipate would be the *most actionable* for a security operations team to investigate first, and why?*
+
 2.  **View Application Logs:**
     ```bash
     kubectl logs sample-logging-app -n runtime-lab
@@ -105,11 +117,17 @@ This lab guide provides exercises to help you understand key aspects of monitori
     *   How would structured logging (e.g., JSON format: `{"timestamp": "...", "level": "INFO", "user": "alice", "action": "login", "source_ip": "10.1.2.3"}`) make these logs easier for a SIEM or automated tool to parse and analyze compared to plain text?
     *   What sensitive information should *not* be present in these logs (e.g., actual passwords, full session tokens)?
 
+**✅ Verification Point ✅**
+*From the sample logs, if you were to implement structured logging (e.g., JSON), list three key-value pairs you would definitely include for the "User 'bob' failed login attempt" event to make it easily queryable in a SIEM.*
+
 4.  **Clean up:**
     ```bash
     kubectl delete pod sample-logging-app -n runtime-lab
     # rm logging-app-pod.yaml (if saved)
     ```
+
+**🚀 Challenge Task 🚀**
+*Many applications log to stdout/stderr, which are then collected by the container runtime. Describe one advantage and one disadvantage of this approach compared to an application writing its logs directly to a dedicated log file within the container's filesystem.*
 
 ## Exercise 3: Basic Resource Monitoring for Anomalies
 
@@ -139,6 +157,9 @@ This lab guide provides exercises to help you understand key aspects of monitori
     *   Apply: `kubectl apply -f cpu-hog-pod.yaml -n runtime-lab`
     *   Wait for it to run: `kubectl get pod cpu-hog -n runtime-lab -w`
 
+**✨ Prediction Point ✨**
+*When you run `kubectl top pod cpu-hog`, what do you expect to see regarding its CPU usage relative to its defined CPU limit of `100m` (100 millicores)? Will it be exactly `100m`, slightly less, or could it appear higher momentarily?*
+
 2.  **Observe Resource Usage:**
     *   Get the name of the node where `cpu-hog` is running:
         ```bash
@@ -160,11 +181,17 @@ This lab guide provides exercises to help you understand key aspects of monitori
     *   How do resource `limits` (CPU, memory) defined in a Pod spec help mitigate the impact of such issues on the node and other Pods? (They constrain the misbehaving Pod, preventing it from starving other workloads).
     *   What other metrics (beyond CPU/memory) might be useful for security monitoring? (Network I/O, disk I/O, number of running processes).
 
+**✅ Verification Point ✅**
+*If the `cpu-hog` pod had *no* CPU limit defined in its manifest, and it started consuming excessive CPU, what mechanism in Kubernetes would eventually try to stop it or prevent it from affecting other critical system components on the node? (Hint: Think about node stability).*
+
 4.  **Clean up:**
     ```bash
     kubectl delete pod cpu-hog -n runtime-lab
     # rm cpu-hog-pod.yaml (if saved)
     ```
+
+**🚀 Challenge Task 🚀**
+*Besides `kubectl top`, name one other Kubernetes-native way (e.g., a `kubectl` subcommand or an API resource) you could use to get current or historical resource consumption metrics for a Pod or Node. What is a limitation of `kubectl top` for historical analysis?*
 
 ## Exercise 4: Simulating Basic Incident Response: Isolating a Pod
 
@@ -210,6 +237,9 @@ This lab guide provides exercises to help you understand key aspects of monitori
     *   Wait for Pods: `kubectl get pods -n runtime-lab -w`
     *   Get `my-app-pod` IP: `APP_POD_IP=$(kubectl get pod my-app-pod -n runtime-lab -o jsonpath='{.status.podIP}')`
 
+**✨ Prediction Point ✨**
+*Before applying the `isolate-my-app-pod.yaml` NetworkPolicy, what is the default network behavior within the `runtime-lab` namespace that allows `attacker-sim` to connect to `my-app-pod`?*
+
 2.  **Verify Initial Connectivity:**
     ```bash
     kubectl exec -it attacker-sim -n runtime-lab -- curl --connect-timeout 2 -I $APP_POD_IP
@@ -247,10 +277,16 @@ This lab guide provides exercises to help you understand key aspects of monitori
         ```
         **Expected Outcome:** Connection should **fail** (timeout).
 
+**✅ Verification Point ✅**
+*The applied NetworkPolicy has an empty `ingress: []` and `egress: []` (implicitly, by not defining any rules). Why does this effectively block all traffic, rather than allowing all traffic? What specific part of the NetworkPolicy API specification causes this behavior?*
+
 5.  **Discussion:**
     *   How does this Network Policy help contain a potential incident involving `my-app-pod`? (Prevents lateral movement from the Pod and exfiltration/C2 communication to outside).
     *   What other `kubectl` commands would be part of an initial response to investigate the "compromised" `my-app-pod` once isolated? (`kubectl logs my-app-pod`, `kubectl describe pod my-app-pod`, potentially `kubectl exec` if deemed safe and necessary for live forensics).
     *   What does `kubectl cordon <node-name>` do, and why might it be used in this scenario?
+
+**🚀 Challenge Task 🚀**
+*Imagine you want to allow the isolated `my-app-pod` to *only* make egress connections to a specific internal DNS server (e.g., `kube-dns.kube-system.svc.cluster.local` on UDP port 53) for logging or diagnostics, but still block all other ingress and egress. How would you modify the `isolate-my-app-pod.yaml` NetworkPolicy to achieve this? Provide the relevant YAML snippet for the `egress` rule.*
 
 6.  **Clean up:**
     ```bash
@@ -291,6 +327,9 @@ This lab guide provides exercises to help you understand key aspects of monitori
           priority: NOTICE
         ```
 
+**✨ Prediction Point ✨**
+*Considering Falco's reliance on system calls, if an attacker uses a purely in-memory attack technique within a compromised process (e.g., code injection that doesn't immediately spawn new processes or open network connections), how might this challenge Falco's detection capabilities based on these sample rules?*
+
 2.  **Discussion:**
     *   For each rule:
         *   What kind of malicious or suspicious activity is it trying to detect?
@@ -298,10 +337,16 @@ This lab guide provides exercises to help you understand key aspects of monitori
     *   How does Falco (conceptually) get the information to evaluate these rules? (Primarily by observing system calls (syscalls) made by processes, either via a kernel module or eBPF. It can also ingest Kubernetes audit logs).
     *   What actions might an organization take when Falco generates an alert for one of these rules? (Investigate, isolate, remediate).
 
+**✅ Verification Point ✅**
+*Falco rules often include `macros` (like `trusted_connection` in Rule 3, which is not fully defined in the snippet). Why are macros crucial for writing effective and maintainable Falco rules, especially in complex environments with many legitimate variations of behavior?*
+
 3.  **Security Notes & KCSA Takeaways:**
     *   Runtime security tools provide visibility into the actual behavior of workloads.
     *   Rule-based detection is effective for known malicious patterns.
     *   Understanding what these tools monitor (syscalls, network, file access) is key to appreciating their value.
+
+**🚀 Challenge Task 🚀**
+*Besides rule-based detection like Falco's, what is another common approach or technology used by runtime security tools to detect anomalous or malicious behavior in containers or Kubernetes workloads? Briefly describe how it differs from static rule-based detection.*
 
 This lab guide should give you a better practical and conceptual understanding of monitoring, logging, and runtime security in Kubernetes. Remember to always apply these concepts within the context of your organization's specific security requirements and risk tolerance.
 
