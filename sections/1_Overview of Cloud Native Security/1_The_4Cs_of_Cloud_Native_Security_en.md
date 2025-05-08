@@ -38,3 +38,27 @@ Cloud native security can be understood through the lens of the "4Cs": Code, Con
     *   Ensuring secure network connectivity to and from the cluster.
 
 Addressing security at each of these four layers is crucial for a robust cloud native security strategy.
+
+<hr>
+
+### Quick Check: Understanding the 4Cs
+
+<details>
+  <summary><strong>Question 1:</strong> What does the "Code" layer in the 4Cs primarily focus on?</summary>
+  <p>The "Code" layer focuses on application security, including secure coding practices, dependency management, and vulnerability scanning of the source code itself.</p>
+</details>
+
+<details>
+  <summary><strong>Question 2:</strong> Why are minimal base images important for the "Container" security layer?</summary>
+  <p>Minimal base images reduce the attack surface by including only necessary libraries and binaries, thereby minimizing potential vulnerabilities within the container image.</p>
+</details>
+
+<details>
+  <summary><strong>Question 3:</strong> Mention two key aspects of "Cluster" security in Kubernetes.</summary>
+  <p>Two key aspects include securing control plane components (like the API Server and etcd) and implementing strong authentication/authorization mechanisms (like RBAC).</p>
+</details>
+
+<details>
+  <summary><strong>Question 4:</strong> What does the "Cloud" layer refer to in the context of the 4Cs?</summary>
+  <p>The "Cloud" layer refers to the underlying infrastructure where Kubernetes runs, such as a public cloud provider, a private cloud, or on-premise data centers. Securing this layer involves secure configuration of infrastructure services, network security, and physical security.</p>
+</details>

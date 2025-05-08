@@ -17,6 +17,9 @@ This lab guide provides practical exercises to help you understand and apply sec
 
 **Instructions:**
 
+
+**Prediction Point:** Before inspecting the API Server manifest, what authorization modes do you *expect* to see enabled for good security in a Kubernetes cluster? Why is RBAC commonly included?
+
 1.  **Check API Server Authentication and Authorization Flags:**
     *   If you have access to the control plane node(s), you can inspect the API Server manifest file. For Minikube, you can SSH into the Minikube VM:
         ```bash
@@ -28,6 +31,8 @@ This lab guide provides practical exercises to help you understand and apply sec
         *   `--authorization-mode`: Should include `Node,RBAC` (or other authorizers as appropriate).
         *   `--client-ca-file`: Specifies the CA for client certificate authentication.
         *   `--tls-cert-file` and `--tls-private-key-file`: Specifies the server certificate and private key for TLS.
+
+**Verification Point:** If `--anonymous-auth` was set to `true` (not recommended), how would that change the cluster's security posture regarding unauthenticated access?
     *   **Expected Outcome:** You should be able to identify how authentication and authorization are configured.
     *   **Security Note:** These flags define fundamental security settings. Misconfiguration can lead to unauthorized access.
 
@@ -48,6 +53,26 @@ This lab guide provides practical exercises to help you understand and apply sec
     *   **Expected Outcome:** Understanding of how roles and bindings grant permissions. You might identify subjects (users, groups, service accounts) bound to powerful roles.
     *   **Security Note:** RBAC is critical. Regularly audit roles and bindings to ensure the principle of least privilege is maintained.
 
+**Challenge Task:**
+Write the YAML manifest for a `Role` named `configmap-reader` in the `default` namespace that allows a subject to only `get` and `list` ConfigMaps.
+<details>
+  <summary>Click for a possible solution</summary>
+  <p>
+
+  ```yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    namespace: default
+    name: configmap-reader
+  rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  ```
+  </p>
+</details>
+
 3.  **Check for Anonymous Authentication Status (Indirectly):**
     *   Try to access a common API endpoint without any credentials. If anonymous auth is disabled (which is the default and recommended), you should receive an unauthorized error.
         ```bash
@@ -66,6 +91,8 @@ This lab guide provides practical exercises to help you understand and apply sec
 
 **Instructions:**
 
+
+**Prediction Point:** The Kubelet API on port 10250 is powerful. What type of authentication and authorization mechanisms would you expect to be enabled by default on this port to protect it? Why is unrestricted access to this port dangerous?
 1.  **Attempt to Access Kubelet API (Port 10250):**
     *   First, get the IP address of one of your nodes:
         ```bash
@@ -96,6 +123,15 @@ This lab guide provides practical exercises to help you understand and apply sec
         ```
     *   **Discussion:** Why is an unauthenticated read-only port a security risk? (Information disclosure about workloads and node configuration).
     *   **Security Note:** Ensure port 10255 is disabled or firewalled if not needed and if it exists in your version.
+
+**Challenge Task:**
+How could you conceptually verify if a Kubelet on a specific node is configured with `readOnlyPort: 0` (which disables the read-only port)? Think about where Kubelet configuration might be stored or how it's passed to the Kubelet process.
+<details>
+  <summary>Click for a possible approach</summary>
+  <p>
+  One approach would be to inspect the Kubelet configuration file on the node. The location of this file can vary, but it's often `/var/lib/kubelet/config.yaml`. You would look for the `readOnlyPort` setting within this file. Alternatively, if the Kubelet is run as a systemd service, its startup flags (which might include `--read-only-port=0`) could be inspected in the systemd unit file. Direct inspection typically requires node access.
+  </p>
+</details>
 
 ## Exercise 3: Etcd Security (Conceptual/Verification)
 

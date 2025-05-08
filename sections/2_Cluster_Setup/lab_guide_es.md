@@ -18,6 +18,8 @@ Esta guía de laboratorio proporciona ejercicios prácticos para ayudarle a comp
 
 **Instrucciones:**
 
+
+**Punto de Predicción:** Antes de inspeccionar el manifiesto del API Server, ¿qué modos de autorización *espera* ver habilitados para una buena seguridad en un clúster de Kubernetes? ¿Por qué se incluye comúnmente RBAC?
 1.  **Verificar Flags de Autenticación y Autorización del API Server:**
     *   Si tiene acceso al(los) nodo(s) del plano de control, puede inspeccionar el archivo de manifiesto del API Server. Para Minikube, puede acceder por SSH a la VM de Minikube:
         ```bash
@@ -29,6 +31,8 @@ Esta guía de laboratorio proporciona ejercicios prácticos para ayudarle a comp
         *   `--authorization-mode`: Debería incluir `Node,RBAC` (u otros autorizadores según corresponda).
         *   `--client-ca-file`: Especifica la CA para la autenticación por certificado de cliente.
         *   `--tls-cert-file` y `--tls-private-key-file`: Especifican el certificado del servidor y la clave privada para TLS.
+
+**Punto de Verificación:** Si `--anonymous-auth` estuviera configurado en `true` (no recomendado), ¿cómo cambiaría eso la postura de seguridad del clúster con respecto al acceso no autenticado?
     *   **Resultado Esperado:** Debería poder identificar cómo están configuradas la autenticación y la autorización.
     *   **Nota de Seguridad:** Estos flags definen configuraciones de seguridad fundamentales. Una mala configuración puede llevar a accesos no autorizados.
 
@@ -49,6 +53,26 @@ Esta guía de laboratorio proporciona ejercicios prácticos para ayudarle a comp
     *   **Resultado Esperado:** Comprensión de cómo los roles y los bindings otorgan permisos. Podría identificar sujetos (usuarios, grupos, cuentas de servicio) vinculados a roles poderosos.
     *   **Nota de Seguridad:** RBAC es crítico. Audite regularmente los roles y bindings para asegurar que se mantenga el principio de menor privilegio.
 
+**Tarea de Desafío:**
+Escriba el manifiesto YAML para un `Role` llamado `lector-configmap` en el namespace `default` que permita a un sujeto únicamente hacer `get` y `list` de ConfigMaps.
+<details>
+  <summary>Haga clic para ver una posible solución</summary>
+  <p>
+
+  ```yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    namespace: default
+    name: lector-configmap
+  rules:
+  - apiGroups: [""] # "" indica el grupo API principal (core)
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  ```
+  </p>
+</details>
+
 3.  **Verificar el Estado de la Autenticación Anónima (Indirectamente):**
     *   Intente acceder a un endpoint común de la API sin credenciales. Si la autenticación anónima está deshabilitada (que es lo predeterminado y recomendado), debería recibir un error de no autorizado.
         ```bash
@@ -67,6 +91,8 @@ Esta guía de laboratorio proporciona ejercicios prácticos para ayudarle a comp
 
 **Instrucciones:**
 
+
+**Punto de Predicción:** La API del Kubelet en el puerto 10250 es poderosa. ¿Qué tipo de mecanismos de autenticación y autorización esperaría que estuvieran habilitados por defecto en este puerto para protegerlo? ¿Por qué es peligroso el acceso no restringido a este puerto?
 1.  **Intentar Acceder a la API del Kubelet (Puerto 10250):**
     *   Primero, obtenga la dirección IP de uno de sus nodos:
         ```bash
@@ -97,6 +123,15 @@ Esta guía de laboratorio proporciona ejercicios prácticos para ayudarle a comp
         ```
     *   **Discusión:** ¿Por qué un puerto de solo lectura no autenticado es un riesgo de seguridad? (Divulgación de información sobre cargas de trabajo y configuración del nodo).
     *   **Nota de Seguridad:** Asegúrese de que el puerto 10255 esté deshabilitado o protegido por firewall si no se necesita y si existe en su versión.
+
+**Tarea de Desafío:**
+¿Cómo podría verificar conceptualmente si un Kubelet en un nodo específico está configurado con `readOnlyPort: 0` (lo que deshabilita el puerto de solo lectura)? Piense dónde podría almacenarse la configuración del Kubelet o cómo se pasa al proceso Kubelet.
+<details>
+  <summary>Haga clic para ver un posible enfoque</summary>
+  <p>
+  Un enfoque sería inspeccionar el archivo de configuración del Kubelet en el nodo. La ubicación de este archivo puede variar, pero a menudo es `/var/lib/kubelet/config.yaml`. Buscaría la configuración `readOnlyPort` dentro de este archivo. Alternativamente, si el Kubelet se ejecuta como un servicio systemd, sus flags de inicio (que podrían incluir `--read-only-port=0`) podrían inspeccionarse en el archivo de la unidad systemd. La inspección directa típicamente requiere acceso al nodo.
+  </p>
+</details>
 
 ## Ejercicio 3: Seguridad de Etcd (Conceptual/Verificación)
 
