@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secure-multi-container
+  namespace: container-security-lab
+  labels:
+    security: enhanced
+spec:
+  securityContext:
+    fsGroup: 2000
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: nginx:1.21
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsUser: 1000
+    volumeMounts:
+    - name: shared-data
+      mountPath: /data
+  - name: sidecar
+    image: busybox:1.28
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsUser: 1001
+    volumeMounts:
+    - name: shared-data
+      mountPath: /data
+  volumes:
+  - name: shared-data
+    emptyDir: {}
