@@ -1,0 +1,23 @@
+title: KCSA Certification Study Guide
+description: Your comprehensive guide to preparing for the KCSA exam - CloudNativeGuardians.
+theme: just-the-docs
+
+# Enable search
+search_enabled: true
+
+# Auxiliary links for the header
+aux_links:
+  "View on GitHub":
+    - "https://github.com/asuresky/CloudNativeGuardiansKCSA"
+
+# Default color scheme
+color_scheme: nil # Can be 'dark' or 'light' or nil for user choice
+
+# Footer content
+footer_content: "Copyright &copy; 2025 CloudNativeGuardiansKCSA. Distributed by an &lt;a href=&quot;https://github.com/features/actions&quot;&gt;AI-generated&lt;/a&gt; theme."
+
+# Call to action button in the header (URL will need adjustment post-deployment)
+call_to_action:
+  button_text: "Start Studying"
+  url: "/CloudNativeGuardiansKCSA/sections/1_Overview%20of%20Cloud%20Native%20Security/main_concepts_en.html"
+
