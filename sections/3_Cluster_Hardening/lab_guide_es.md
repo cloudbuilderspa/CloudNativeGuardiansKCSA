@@ -28,6 +28,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     ```
     *   Verificar etiquetas: `kubectl get ns psa-lab --show-labels`
 
+**✨ Punto de Predicción ✨**
+*Antes de intentar desplegar un pod privilegiado, ¿qué esperas que suceda dadas las etiquetas de namespace que acabas de aplicar?*
+
 3.  **Intentar Desplegar un Pod que Viole la Política `baseline` (Pod Privilegiado):**
     *   Crear `privileged-pod.yaml`:
         ```yaml
@@ -47,6 +50,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     *   Intentar aplicar: `kubectl apply -f privileged-pod.yaml`
     *   **Resultado Esperado:** La creación del Pod debería ser **denegada** debido a la etiqueta `enforce=baseline`. Debería ver un mensaje de error indicando la violación. Si revisa los registros de auditoría (conceptual para este laboratorio), se generaría un evento de auditoría. También se mostraría una advertencia al usuario.
     *   **Nota de Seguridad:** Esto demuestra cómo PSA previene el despliegue de Pods excesivamente privilegiados.
+
+**✅ Punto de Verificación ✅**
+*Confirma que la creación del pod fue denegada y que el mensaje de error indicó una violación de política. ¿Qué parte de la política PSS `baseline` violó el pod privilegiado?*
 
 4.  **Intentar Desplegar un Pod que Viole `baseline` (por ejemplo, volumen HostPath):**
     *   Crear `hostpath-pod.yaml`:
@@ -97,6 +103,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
         ```
     *   Aplicar: `kubectl apply -f compliant-pod.yaml`
     *   **Resultado Esperado:** El Pod debería crearse correctamente ya que cumple con PSS `baseline` (y probablemente `restricted`).
+
+**🚀 Tarea de Desafío 🚀**
+*Modifica el archivo `compliant-pod.yaml` para que viole la política `baseline` de una manera *distinta* a `privileged: true` o usando un `hostPath` sensible (por ejemplo, intenta añadir una capacidad como `NET_ADMIN` bajo `spec.containers[0].securityContext.capabilities.add`). ¿Qué sucede cuando intentas aplicarlo?*
     *   Verificar estado: `kubectl get pod -n psa-lab compliant-pod`
 
 6.  **Limpieza:**
@@ -145,6 +154,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     ```
     *   Verificar: `kubectl describe rolebinding my-app-sa-pod-reader-binding -n rbac-lab`
 
+**✨ Punto de Predicción ✨**
+*Ahora que la ServiceAccount `my-app-sa` está vinculada al Role `pod-reader`, ¿qué acciones específicas predices que podrá realizar dentro del namespace `rbac-lab` y qué acciones le serán denegadas cuando sea utilizada por un Pod?*
+
 5.  **Desplegar un Pod usando esta ServiceAccount y verificar sus permisos:**
     *   Crear `test-rbac-pod.yaml`:
         ```yaml
@@ -175,6 +187,12 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     *   **Resultado Esperado:** El Pod, usando `my-app-sa`, puede listar Pods en `rbac-lab` pero no puede listar Secrets, demostrando los permisos RBAC aplicados.
     *   **Nota de Seguridad:** Este ejercicio demuestra el principio de menor privilegio para las ServiceAccounts.
 
+**✅ Punto de Verificación ✅**
+*Verifica que `kubectl get pods` tuvo éxito y `kubectl get secrets` falló desde dentro del `test-rbac-pod`. ¿Se alinea esto con los permisos definidos en el Role `pod-reader`? Explica por qué.*
+
+**🚀 Tarea de Desafío 🚀**
+*Modifica el archivo `pod-reader-role.yaml` para otorgar también a la ServiceAccount `my-app-sa` permiso para `get` y `list` Secrets en el namespace `rbac-lab`. Aplica el cambio y vuelve a probar los permisos desde un nuevo `test-rbac-pod` (puede que necesites eliminar el anterior primero si tiene el mismo nombre). ¿Funciona como se esperaba? ¿Qué comando `kubectl auth can-i` podrías ejecutar *como la ServiceAccount* para verificar este permiso directamente?*
+
 6.  **Limpieza:**
     ```bash
     kubectl delete namespace rbac-lab
@@ -200,6 +218,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
       -n secrets-lab
     ```
     *   Inspeccionar el Secret (nótese que está codificado en base64): `kubectl get secret my-db-credentials -n secrets-lab -o yaml`
+
+**✨ Punto de Predicción ✨**
+*Cuando montes el Secret `my-db-credentials` como archivos en un Pod (como se describe en el siguiente paso), ¿en qué formato esperas que el `username` y `password` sean accesibles dentro del contenedor en `/etc/db-credentials/username` y `/etc/db-credentials/password`? ¿Estarán codificados en base64 o decodificados?*
 
 3.  **Montar el Secret como archivos en un Pod:**
     *   Crear `secret-file-pod.yaml`:
@@ -227,6 +248,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     *   Verificar registros: `kubectl logs secret-file-pod -n secrets-lab`
     *   **Resultado Esperado:** Los registros deberían mostrar el nombre de usuario y la contraseña decodificados, leídos de los archivos montados.
     *   **Nota de Seguridad:** Generalmente se prefiere montar como archivos de solo lectura en lugar de variables de entorno.
+
+**✅ Punto de Verificación ✅**
+*Confirma que los registros del pod muestran el nombre de usuario y la contraseña decodificados. ¿Por qué es importante que la bandera `readOnly: true` esté configurada para el volumeMount al montar secretos?*
 
 4.  **Montar partes del Secret como variables de entorno:**
     *   Crear `secret-env-pod.yaml`:
@@ -257,6 +281,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     *   Verificar registros: `kubectl logs secret-env-pod -n secrets-lab`
     *   **Resultado Esperado:** Los registros deberían mostrar el nombre de usuario y la contraseña de las variables de entorno.
     *   **Discusión:** Comparar las implicaciones de seguridad de los montajes de archivos frente a las variables de entorno (las variables de entorno pueden exponerse más fácilmente a través de registros, procesos hijos o `describe pod`).
+
+**🚀 Tarea de Desafío 🚀**
+*Describe un escenario específico donde exponer un secreto mediante una variable de entorno podría llevar a una divulgación accidental, que el montaje como archivo podría prevenir. Por el contrario, ¿existen ventajas operativas (incluso menores) al usar variables de entorno para secretos en ciertos contextos?*
 
 5.  **Limpieza:**
     ```bash
@@ -321,6 +348,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
         ```
     *   **Resultado Esperado:** La comunicación debería tener éxito (HTTP 200 OK).
 
+**✨ Punto de Predicción ✨**
+*Si aplicas una política de ingress `default-deny` al namespace `netpol-lab` que selecciona todos los pods (como se muestra en el siguiente paso), ¿qué predices que sucederá con la comunicación entre `pod-a` y `pod-b`? ¿Podrá `pod-a` seguir haciendo `curl` a la dirección IP de `pod-b`?*
+
 4.  **Crear una Network Policy de `default-deny` para Ingress en el namespace `netpol-lab`:**
     *   `default-deny-ingress.yaml`:
         ```yaml
@@ -342,6 +372,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
         kubectl exec -it pod-a -n netpol-lab -- curl -I --connect-timeout 2 $POD_B_IP
         ```
     *   **Resultado Esperado:** La comunicación ahora debería fallar (timeout o conexión rechazada) porque no se permite explícitamente ningún ingreso a `pod-b`.
+
+**✅ Punto de Verificación ✅**
+*Confirma que `pod-a` ya no puede comunicarse con `pod-b`. ¿Por qué una política de ingress `default-deny` en `pod-b` (o en todos los pods) bloquea esta comunicación incluso si no hay una política de egress definida en `pod-a` que restrinja su tráfico saliente?*
 
 6.  **Crear una Network Policy para permitir el ingreso a `pod-b` (rol: backend) desde `pod-a` (rol: frontend) en el puerto 80:**
     *   `allow-frontend-to-backend.yaml`:
@@ -378,6 +411,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     *   **Resultado Esperado:** La comunicación debería tener éxito nuevamente.
     *   **Nota de Seguridad:** Las Network Policies son esenciales para la microsegmentación y la implementación de un modelo de confianza cero.
 
+**🚀 Tarea de Desafío 🚀**
+*Crea y aplica una Network Policy adicional que permita a `pod-b` (rol: backend) iniciar conexiones de egress *solo* hacia `pod-a` (rol: frontend) en el puerto TCP 80, y deniegue todo el demás egress desde `pod-b`. Prueba esto intentando hacer `curl` a un sitio externo (por ejemplo, `curl -I --connect-timeout 2 http://example.com`) desde `pod-b` y también intentando hacer `curl pod-a` desde `pod-b`.*
+
 8.  **Limpieza:**
     ```bash
     kubectl delete namespace netpol-lab
@@ -390,12 +426,18 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
 
 **Instrucciones:**
 
+**✨ Punto de Predicción ✨**
+*Antes de profundizar en flags y políticas específicas, ¿por qué se consideran los registros de auditoría del API Server un componente crítico para la seguridad del clúster de Kubernetes? ¿Qué tipo de información pueden proporcionar a un administrador de seguridad o a un respondedor de incidentes?*
+
 1.  **Discutir Flags del Registro de Auditoría del API Server (Conceptual):**
     *   Si tiene acceso para inspeccionar el manifiesto del API Server (por ejemplo, `minikube ssh` y luego `sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml`), busque flags como:
         *   `--audit-log-path`: Especifica la ruta del archivo para los registros de auditoría.
         *   `--audit-policy-file`: Especifica la ruta al archivo de política de auditoría que define qué registrar.
         *   `--audit-log-maxage`, `--audit-log-maxbackup`, `--audit-log-maxsize`: Flags para la rotación de registros.
     *   **Discusión:** ¿Por qué son importantes estos flags? ¿Qué información controla un archivo de política de auditoría (niveles, etapas)? Consulte `main_concepts_es.md` para detalles sobre la política de auditoría.
+
+**✅ Punto de Verificación ✅**
+*Reflexiona sobre los niveles de la política de auditoría (por ejemplo, `None`, `Metadata`, `Request`, `RequestResponse`). Para investigar un incidente de seguridad donde necesitas entender el contexto completo de una llamada a la API (como el cuerpo de una solicitud `CREATE`), ¿qué nivel proporcionaría la información más completa y cuáles son las posibles compensaciones (por ejemplo, almacenamiento, rendimiento) de usar ese nivel extensamente?*
 
 2.  **Intentar Encontrar un Evento de Auditoría (Si los registros son accesibles y conoce la ruta):**
     *   Este paso depende en gran medida de la configuración de su clúster. Si usa Minikube y encontró un `--audit-log-path` como `/var/log/kubernetes/audit.log`:
@@ -407,6 +449,9 @@ Esta guía de laboratorio proporciona ejercicios prácticos para reforzar su com
     *   Intente identificar la entrada de registro correspondiente. Busque su nombre de usuario/cliente, el verbo (`get`) y el recurso (`pods`).
     *   **Resultado Esperado (Conceptual):** Obtener una apreciación del detalle y volumen de los registros de auditoría. Comprender que la inspección manual es difícil, lo que resalta la necesidad de herramientas de análisis automatizado.
     *   **Nota de Seguridad:** Los registros de auditoría son su fuente principal para detectar e investigar incidentes de seguridad. Asegúrese de que estén habilitados, configurados correctamente y almacenados de forma segura.
+
+**🚀 Tarea de Desafío 🚀**
+*Investiga dos vectores de ataque comunes o configuraciones erróneas de Kubernetes (por ejemplo, crear un pod privilegiado, acceso no autorizado a secretos, modificar ClusterRoles críticos). Para cada uno, describe qué tipo de entradas de registro de auditoría (por ejemplo, verbo, recurso, usuario, detalles de la solicitud) podrían indicar que tal actividad está ocurriendo o ha ocurrido.*
 
 **Nota de Limpieza:** Recuerde eliminar cualquier namespace u otros recursos creados específicamente para estos laboratorios si no se limpian automáticamente al eliminar el namespace.
 

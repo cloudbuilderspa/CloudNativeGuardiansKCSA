@@ -39,6 +39,9 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
         *   En la política de ejemplo, ¿por qué se registran las modificaciones de `pods/exec` y `secrets` a nivel `RequestResponse`? (Para capturar todos los detalles de operaciones potencialmente de alto riesgo).
         *   ¿Por qué se registran otras solicitudes a nivel `Metadata`? (Para reducir el volumen de registros sin dejar de capturar información esencial del evento).
 
+**✨ Punto de Predicción ✨**
+*Si un atacante crea exitosamente un nuevo `ClusterRoleBinding` que le otorga privilegios de `cluster-admin`, ¿qué regla en el `audit-policy-sample.yaml` de ejemplo registraría este evento y con qué nivel de detalle?*
+
 2.  **Tarea 2 (Si es posible): Encontrar un Evento en los Registros de Auditoría**
     *   **Nota:** El acceso a los registros de auditoría sin procesar depende en gran medida de la configuración de su clúster de Kubernetes (Minikube, Kind, servicio de nube gestionado). Para Minikube, podría hacer `minikube ssh` y encontrar los registros típicamente en `/var/log/kubernetes/audit.log` o similar, si está habilitado.
     *   Si es accesible:
@@ -56,10 +59,16 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
         *   `responseStatus.code`: El código de estado HTTP de la respuesta.
     *   **Discusión:** ¿Por qué son cruciales los registros de auditoría para la monitorización de seguridad, la investigación de incidentes y el cumplimiento?
 
+**✅ Punto de Verificación ✅**
+*Basándote en los campos observados (o comprensión conceptual), ¿qué campo específico del registro de auditoría sería más crítico para determinar *qué usuario o cuenta de servicio* inició una solicitud API potencialmente maliciosa (por ejemplo, eliminar un Secret crítico)?*
+
 3.  **Notas de Seguridad y Conclusiones KCSA:**
     *   Los registros de auditoría son una fuente principal para detectar actividad API no autorizada.
     *   Una política de auditoría bien definida es esencial para capturar eventos significativos sin ruido excesivo.
     *   Los registros deben almacenarse de forma segura y revisarse o analizarse regularmente por sistemas automatizados.
+
+**🚀 Tarea de Desafío 🚀**
+*Imagina que tu política de auditoría está configurada para registrar eventos de `pods/exec` solo a nivel `Metadata`. Un atacante obtiene acceso a un pod en ejecución y usa `kubectl exec` en él para ejecutar comandos maliciosos. ¿Qué información crucial sobre las acciones del atacante *dentro del pod* faltaría en los registros de auditoría con esta política, y qué nivel de auditoría se necesitaría para capturarla?*
 
 ## Ejercicio 2: Análisis de Registros de Aplicación para Eventos de Seguridad
 
@@ -93,6 +102,9 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
         ```
     *   Aplicar: `kubectl apply -f logging-app-pod.yaml -n runtime-lab`
 
+**✨ Punto de Predicción ✨**
+*Antes de ver los registros, ¿qué entrada de registro específica de los comandos de `sample-logging-app` anticipas que sería la *más accionable* para que un equipo de operaciones de seguridad investigue primero, y por qué?*
+
 2.  **Ver Registros de Aplicación:**
     ```bash
     kubectl logs sample-logging-app -n runtime-lab
@@ -105,11 +117,17 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   ¿Cómo facilitaría el registro estructurado (por ejemplo, formato JSON: `{"timestamp": "...", "level": "INFO", "user": "alice", "action": "login", "source_ip": "10.1.2.3"}`) el análisis de estos registros por un SIEM o una herramienta automatizada en comparación con texto plano?
     *   ¿Qué información sensible *no* debería estar presente en estos registros (por ejemplo, contraseñas reales, tokens de sesión completos)?
 
+**✅ Punto de Verificación ✅**
+*De los registros de ejemplo, si fueras a implementar un registro estructurado (por ejemplo, JSON), enumera tres pares clave-valor que definitivamente incluirías para el evento "Usuario 'bob' falló intento de inicio de sesión" para que sea fácilmente consultable en un SIEM.*
+
 4.  **Limpieza:**
     ```bash
     kubectl delete pod sample-logging-app -n runtime-lab
     # rm logging-app-pod.yaml (si se guardó)
     ```
+
+**🚀 Tarea de Desafío 🚀**
+*Muchas aplicaciones registran en stdout/stderr, que luego son recolectados por el runtime del contenedor. Describe una ventaja y una desventaja de este enfoque en comparación con una aplicación que escribe sus registros directamente en un archivo de registro dedicado dentro del sistema de archivos del contenedor.*
 
 ## Ejercicio 3: Monitorización Básica de Recursos para Anomalías
 
@@ -139,6 +157,9 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   Aplicar: `kubectl apply -f cpu-hog-pod.yaml -n runtime-lab`
     *   Esperar a que se ejecute: `kubectl get pod cpu-hog -n runtime-lab -w`
 
+**✨ Punto de Predicción ✨**
+*Cuando ejecutas `kubectl top pod cpu-hog`, ¿qué esperas ver con respecto a su uso de CPU en relación con su límite de CPU definido de `100m` (100 milicores)? ¿Será exactamente `100m`, ligeramente menos, o podría parecer más alto momentáneamente?*
+
 2.  **Observar Uso de Recursos:**
     *   Obtener el nombre del nodo donde `cpu-hog` se está ejecutando:
         ```bash
@@ -160,11 +181,17 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   ¿Cómo ayudan los `limits` de recursos (CPU, memoria) definidos en la especificación de un Pod a mitigar el impacto de tales problemas en el nodo y otros Pods? (Restringen el Pod que se comporta mal, evitando que prive de recursos a otras cargas de trabajo).
     *   ¿Qué otras métricas (más allá de CPU/memoria) podrían ser útiles para la monitorización de seguridad? (E/S de red, E/S de disco, número de procesos en ejecución).
 
+**✅ Punto de Verificación ✅**
+*Si el pod `cpu-hog` *no* tuviera un límite de CPU definido en su manifiesto y comenzara a consumir CPU excesiva, ¿qué mecanismo en Kubernetes intentaría finalmente detenerlo o evitar que afecte a otros componentes críticos del sistema en el nodo? (Pista: Piensa en la estabilidad del nodo).*
+
 4.  **Limpieza:**
     ```bash
     kubectl delete pod cpu-hog -n runtime-lab
     # rm cpu-hog-pod.yaml (si se guardó)
     ```
+
+**🚀 Tarea de Desafío 🚀**
+*Además de `kubectl top`, nombra otra forma nativa de Kubernetes (por ejemplo, un subcomando de `kubectl` o un recurso API) que podrías usar para obtener métricas de consumo de recursos actuales o históricas para un Pod o Nodo. ¿Cuál es una limitación de `kubectl top` para el análisis histórico?*
 
 ## Ejercicio 4: Simulación de Respuesta Básica a Incidentes: Aislamiento de un Pod
 
@@ -210,6 +237,9 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   Esperar a los Pods: `kubectl get pods -n runtime-lab -w`
     *   Obtener IP de `my-app-pod`: `APP_POD_IP=$(kubectl get pod my-app-pod -n runtime-lab -o jsonpath='{.status.podIP}')`
 
+**✨ Punto de Predicción ✨**
+*Antes de aplicar la NetworkPolicy `isolate-my-app-pod.yaml`, ¿cuál es el comportamiento de red predeterminado dentro del namespace `runtime-lab` que permite a `attacker-sim` conectarse a `my-app-pod`?*
+
 2.  **Verificar Conectividad Inicial:**
     ```bash
     kubectl exec -it attacker-sim -n runtime-lab -- curl --connect-timeout 2 -I $APP_POD_IP
@@ -247,10 +277,16 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
         ```
         **Resultado Esperado:** La conexión debería **fallar** (timeout).
 
+**✅ Punto de Verificación ✅**
+*La NetworkPolicy aplicada tiene un `ingress: []` y `egress: []` vacíos (implícitamente, al no definir ninguna regla). ¿Por qué esto bloquea efectivamente todo el tráfico, en lugar de permitir todo el tráfico? ¿Qué parte específica de la especificación de la API de NetworkPolicy causa este comportamiento?*
+
 5.  **Discusión:**
     *   ¿Cómo ayuda esta Network Policy a contener un incidente potencial que involucre a `my-app-pod`? (Previene el movimiento lateral desde el Pod y la exfiltración/comunicación C2 hacia el exterior).
     *   ¿Qué otros comandos `kubectl` formarían parte de una respuesta inicial para investigar el `my-app-pod` "comprometido" una vez aislado? (`kubectl logs my-app-pod`, `kubectl describe pod my-app-pod`, potencialmente `kubectl exec` si se considera seguro y necesario para análisis forense en vivo).
     *   ¿Qué hace `kubectl cordon <nombre-del-nodo>` y por qué podría usarse en este escenario?
+
+**🚀 Tarea de Desafío 🚀**
+*Imagina que quieres permitir que el `my-app-pod` aislado *solo* realice conexiones de egreso a un servidor DNS interno específico (por ejemplo, `kube-dns.kube-system.svc.cluster.local` en el puerto UDP 53) para registro o diagnósticos, pero aún así bloquear todo el resto del tráfico de ingreso y egreso. ¿Cómo modificarías la NetworkPolicy `isolate-my-app-pod.yaml` para lograr esto? Proporciona el fragmento YAML relevante para la regla de `egress`.*
 
 6.  **Limpieza:**
     ```bash
@@ -291,6 +327,9 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
           priority: NOTICE
         ```
 
+**✨ Punto de Predicción ✨**
+*Considerando la dependencia de Falco de las llamadas al sistema, si un atacante utiliza una técnica de ataque puramente en memoria dentro de un proceso comprometido (por ejemplo, inyección de código que no genera inmediatamente nuevos procesos ni abre conexiones de red), ¿cómo podría esto desafiar las capacidades de detección de Falco basadas en estas reglas de ejemplo?*
+
 2.  **Discusión:**
     *   Para cada regla:
         *   ¿Qué tipo de actividad maliciosa o sospechosa está tratando de detectar?
@@ -298,9 +337,15 @@ Esta guía de laboratorio proporciona ejercicios para ayudarle a comprender aspe
     *   ¿Cómo obtiene Falco (conceptualmente) la información para evaluar estas reglas? (Principalmente observando llamadas al sistema (syscalls) realizadas por procesos, ya sea a través de un módulo del kernel o eBPF. También puede ingerir registros de auditoría de Kubernetes).
     *   ¿Qué acciones podría tomar una organización cuando Falco genera una alerta para una de estas reglas? (Investigar, aislar, remediar).
 
+**✅ Punto de Verificación ✅**
+*Las reglas de Falco a menudo incluyen `macros` (como `trusted_connection` en la Regla 3, que no está completamente definida en el fragmento). ¿Por qué son cruciales las macros para escribir reglas de Falco efectivas y mantenibles, especialmente en entornos complejos con muchas variaciones legítimas de comportamiento?*
+
 3.  **Notas de Seguridad y Conclusiones KCSA:**
     *   Las herramientas de seguridad en tiempo de ejecución proporcionan visibilidad sobre el comportamiento real de las cargas de trabajo.
     *   La detección basada en reglas es efectiva para patrones maliciosos conocidos.
     *   Comprender qué monitorizan estas herramientas (syscalls, red, acceso a archivos) es clave para apreciar su valor.
+
+**🚀 Tarea de Desafío 🚀**
+*Además de la detección basada en reglas como la de Falco, ¿cuál es otro enfoque o tecnología común utilizado por las herramientas de seguridad en tiempo de ejecución para detectar comportamientos anómalos o maliciosos en contenedores o cargas de trabajo de Kubernetes? Describe brevemente en qué se diferencia de la detección estática basada en reglas.*
 
 Esta guía de laboratorio debería darle una mejor comprensión práctica y conceptual de la monitorización, el registro y la seguridad en tiempo de ejecución en Kubernetes. Recuerde aplicar siempre estos conceptos dentro del contexto de los requisitos de seguridad específicos y la tolerancia al riesgo de su organización.

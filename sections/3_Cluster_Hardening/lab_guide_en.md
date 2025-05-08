@@ -28,6 +28,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     ```
     *   Verify labels: `kubectl get ns psa-lab --show-labels`
 
+**✨ Prediction Point ✨**
+*Before attempting to deploy a privileged pod, what do you expect will happen given the namespace labels you just applied?*
+
 3.  **Attempt to Deploy a Pod that Violates the `baseline` Policy (Privileged Pod):**
     *   Create `privileged-pod.yaml`:
         ```yaml
@@ -47,6 +50,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     *   Attempt to apply: `kubectl apply -f privileged-pod.yaml`
     *   **Expected Outcome:** The Pod creation should be **denied** due to the `enforce=baseline` label. You should see an error message indicating the violation. If you check audit logs (conceptual for this lab), an audit event would be generated. A warning would also be displayed to the user.
     *   **Security Note:** This demonstrates PSA preventing the deployment of overly privileged Pods.
+
+**✅ Verification Point ✅**
+*Confirm that the pod creation was denied and that the error message indicated a policy violation. What part of the PSS `baseline` policy did the privileged pod violate?*
 
 4.  **Attempt to Deploy a Pod that Violates `baseline` (e.g., HostPath volume):**
     *   Create `hostpath-pod.yaml`:
@@ -97,6 +103,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
         ```
     *   Apply: `kubectl apply -f compliant-pod.yaml`
     *   **Expected Outcome:** The Pod should be created successfully as it adheres to `baseline` (and likely `restricted`) PSS.
+
+**🚀 Challenge Task 🚀**
+*Modify the `compliant-pod.yaml` to make it violate the `baseline` policy in a way *other* than `privileged: true` or using a sensitive `hostPath` (e.g., try adding a capability like `NET_ADMIN` under `spec.containers[0].securityContext.capabilities.add`). What happens when you try to apply it?*
     *   Check status: `kubectl get pod -n psa-lab compliant-pod`
 
 6.  **Clean up:**
@@ -145,6 +154,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     ```
     *   Verify: `kubectl describe rolebinding my-app-sa-pod-reader-binding -n rbac-lab`
 
+**✨ Prediction Point ✨**
+*Now that the `my-app-sa` ServiceAccount is bound to the `pod-reader` Role, what specific actions do you predict it will be able to perform within the `rbac-lab` namespace, and what actions will be denied when used by a Pod?*
+
 5.  **Deploy a Pod using this ServiceAccount and verify its permissions:**
     *   Create `test-rbac-pod.yaml`:
         ```yaml
@@ -175,6 +187,12 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     *   **Expected Outcome:** The Pod, using `my-app-sa`, can list Pods in `rbac-lab` but cannot list Secrets, demonstrating the applied RBAC permissions.
     *   **Security Note:** This exercise demonstrates the principle of least privilege for ServiceAccounts.
 
+**✅ Verification Point ✅**
+*Verify that `kubectl get pods` succeeded and `kubectl get secrets` failed from within the `test-rbac-pod`. Does this align with the permissions defined in the `pod-reader` Role? Explain why.*
+
+**🚀 Challenge Task 🚀**
+*Modify the `pod-reader-role.yaml` to also grant the `my-app-sa` ServiceAccount permission to `get` and `list` Secrets in the `rbac-lab` namespace. Apply the change and re-test the permissions from within a new `test-rbac-pod` (you might need to delete the old one first if it has the same name). Does it work as expected? What `kubectl auth can-i` command could you run *as the ServiceAccount* to check this permission directly?*
+
 6.  **Clean up:**
     ```bash
     kubectl delete namespace rbac-lab
@@ -200,6 +218,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
       -n secrets-lab
     ```
     *   Inspect the Secret (notice it's base64 encoded): `kubectl get secret my-db-credentials -n secrets-lab -o yaml`
+
+**✨ Prediction Point ✨**
+*When you mount the `my-db-credentials` Secret as files into a Pod (as described in the next step), in what format do you expect the `username` and `password` to be accessible inside the container at `/etc/db-credentials/username` and `/etc/db-credentials/password`? Will they be base64 encoded or decoded?*
 
 3.  **Mount the Secret as files into a Pod:**
     *   Create `secret-file-pod.yaml`:
@@ -227,6 +248,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     *   Check logs: `kubectl logs secret-file-pod -n secrets-lab`
     *   **Expected Outcome:** The logs should show the decoded username and password, read from the mounted files.
     *   **Security Note:** Mounting as read-only files is generally preferred over environment variables.
+
+**✅ Verification Point ✅**
+*Confirm that the pod logs show the decoded username and password. Why is it important that the `readOnly: true` flag is set for the volumeMount when mounting secrets?*
 
 4.  **Mount parts of the Secret as environment variables:**
     *   Create `secret-env-pod.yaml`:
@@ -257,6 +281,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     *   Check logs: `kubectl logs secret-env-pod -n secrets-lab`
     *   **Expected Outcome:** Logs should show username and password from environment variables.
     *   **Discussion:** Compare the security implications of file mounts vs. environment variables (env vars can be exposed more easily via logs, child processes, or `describe pod`).
+
+**🚀 Challenge Task 🚀**
+*Describe a specific scenario where exposing a secret via an environment variable could lead to an accidental disclosure, which mounting as a file might prevent. Conversely, are there any (even minor) operational advantages to using environment variables for secrets in certain contexts?*
 
 5.  **Clean up:**
     ```bash
@@ -321,6 +348,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
         ```
     *   **Expected Outcome:** Communication should succeed (HTTP 200 OK).
 
+**✨ Prediction Point ✨**
+*If you apply a `default-deny` ingress policy to the `netpol-lab` namespace that selects all pods (as shown in the next step), what do you predict will happen to the communication between `pod-a` and `pod-b`? Will `pod-a` still be able to `curl pod-b`'s IP address?*
+
 4.  **Create a `default-deny` Ingress Network Policy for the `netpol-lab` namespace:**
     *   `default-deny-ingress.yaml`:
         ```yaml
@@ -342,6 +372,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
         kubectl exec -it pod-a -n netpol-lab -- curl -I --connect-timeout 2 $POD_B_IP
         ```
     *   **Expected Outcome:** Communication should now fail (timeout or connection refused) because no ingress is explicitly allowed to `pod-b`.
+
+**✅ Verification Point ✅**
+*Confirm that `pod-a` can no longer communicate with `pod-b`. Why does a `default-deny` ingress policy on `pod-b` (or all pods) block this communication even if there's no egress policy defined on `pod-a` restricting its outbound traffic?*
 
 6.  **Create a Network Policy to allow ingress to `pod-b` (role: backend) from `pod-a` (role: frontend) on port 80:**
     *   `allow-frontend-to-backend.yaml`:
@@ -378,6 +411,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     *   **Expected Outcome:** Communication should succeed again.
     *   **Security Note:** Network Policies are essential for micro-segmentation and implementing a zero-trust model.
 
+**🚀 Challenge Task 🚀**
+*Create and apply an additional Network Policy that allows `pod-b` (role: backend) to initiate egress connections *only* to `pod-a` (role: frontend) on TCP port 80, and denies all other egress from `pod-b`. Test this by trying to `curl` an external site (e.g., `curl -I --connect-timeout 2 http://example.com`) from within `pod-b` and also by trying to `curl pod-a` from `pod-b`.*
+
 8.  **Clean up:**
     ```bash
     kubectl delete namespace netpol-lab
@@ -390,12 +426,18 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
 
 **Instructions:**
 
+**✨ Prediction Point ✨**
+*Before diving into specific flags and policies, why are API Server audit logs considered a critical component for Kubernetes cluster security? What kind of insights can they provide to a security administrator or an incident responder?*
+
 1.  **Discuss API Server Audit Log Flags (Conceptual):**
     *   If you have access to inspect the API Server manifest (e.g., `minikube ssh` then `sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml`), look for flags like:
         *   `--audit-log-path`: Specifies the file path for audit logs.
         *   `--audit-policy-file`: Specifies the path to the audit policy file defining what to log.
         *   `--audit-log-maxage`, `--audit-log-maxbackup`, `--audit-log-maxsize`: Flags for log rotation.
     *   **Discussion:** Why are these flags important? What information does an audit policy file control (levels, stages)? Refer to the `main_concepts.md` for details on audit policy.
+
+**✅ Verification Point ✅**
+*Reflect on the audit policy levels (e.g., `None`, `Metadata`, `Request`, `RequestResponse`). For investigating a security incident where you need to understand the full context of an API call (like the body of a `CREATE` request), which level would provide the most comprehensive information, and what are the potential trade-offs (e.g., storage, performance) of using that level extensively?*
 
 2.  **Attempt to Find an Audit Event (If logs are accessible and you know the path):**
     *   This step is highly dependent on your cluster setup. If using Minikube and you found an `--audit-log-path` like `/var/log/kubernetes/audit.log`:
@@ -407,6 +449,9 @@ This lab guide provides hands-on exercises to reinforce your understanding of Ku
     *   Try to identify the corresponding log entry. Look for your username/client, the verb (`get`), and the resource (`pods`).
     *   **Expected Outcome (Conceptual):** Gain an appreciation for the detail and volume of audit logs. Understand that manual inspection is hard, highlighting the need for automated analysis tools.
     *   **Security Note:** Audit logs are your primary source for detecting and investigating security incidents. Ensure they are enabled, properly configured, and securely stored.
+
+**🚀 Challenge Task 🚀**
+*Research two common Kubernetes attack vectors or misconfigurations (e.g., creating a privileged pod, unauthorized access to secrets, modifying critical ClusterRoles). For each, describe what kind of audit log entries (e.g., verb, resource, user, request details) might indicate that such an activity is occurring or has occurred.*
 
 **Cleanup Note:** Remember to delete any namespaces or other resources created specifically for these labs if they are not automatically cleaned up by deleting the namespace.
 

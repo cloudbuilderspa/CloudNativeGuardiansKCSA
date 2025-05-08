@@ -16,6 +16,54 @@ The control plane is the nerve center of Kubernetes, making global decisions abo
 ### API Server Security
 
 *   **Role:** The API Server is the front-end for the Kubernetes control plane, exposing the Kubernetes API. It processes REST requests, validates them, and updates the corresponding objects in `etcd`. All administrative tasks and interactions with the cluster go through the API Server.
+
+{% raw %}
+<div class="mermaid">
+graph LR
+    subgraph "Clients"
+        kubectl["kubectl (User/Admin)"]
+    end
+
+    subgraph "Control Plane"
+        APIServer["Kubernetes API Server"]
+        ControllerManager["Controller Manager"]
+        Scheduler["Scheduler"]
+        Etcd["etcd (Cluster Data Store)"]
+    end
+
+    subgraph "Worker Nodes"
+        Kubelet1["Kubelet (Node 1)"]
+        Kubelet2["Kubelet (Node N)"]
+    end
+
+    kubectl -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> kubectl
+
+    ControllerManager -- "TLS" --> APIServer
+    APIServer -- "TLS" --> ControllerManager
+
+    Scheduler -- "TLS" --> APIServer
+    APIServer -- "TLS" --> Scheduler
+
+    APIServer -- "mTLS (Client Cert AuthN)" --> Etcd
+
+    Kubelet1 -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> Kubelet1
+
+    Kubelet2 -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> Kubelet2
+
+    classDef controlPlane fill:#D6EAF8,stroke:#333,stroke-width:2px;
+    class APIServer,ControllerManager,Scheduler,Etcd controlPlane;
+
+    classDef clients fill:#E8DAEF,stroke:#333,stroke-width:2px;
+    class kubectl clients;
+
+    classDef nodes fill:#D5F5E3,stroke:#333,stroke-width:2px;
+    class Kubelet1,Kubelet2 nodes;
+</div>
+{% endraw %}
+
 *   **Key Security Considerations &amp; Best Practices:**
     *   **Authentication:** Implement strong authentication mechanisms. Kubernetes supports various methods like client certificates, bearer tokens, and integrating with external identity providers (OIDC). Anonymous access should generally be disabled.
     *   **Authorization:** Use robust authorization models like Role-Based Access Control (RBAC) to ensure users and services only have the permissions necessary for their tasks (Principle of Least Privilege). Avoid overly permissive cluster-wide bindings.

@@ -44,6 +44,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
         *   ¿Cuál es el problema con `COPY . /app`?
         *   ¿Cuál es el riesgo de ejecutar la aplicación como usuario root (predeterminado)?
 
+**✨ Punto de Predicción ✨**
+*Antes de mirar el Dockerfile mejorado, si tuvieras que hacer solo *un* cambio en `Dockerfile.insecure` que redujera significativamente su superficie de ataque desde la perspectiva de la composición del software, ¿cuál sería y por qué?*
+
 2.  **Revisar un Ejemplo de Dockerfile Mejorado (Multi-Etapa):**
     *   Considere el siguiente `Dockerfile.improved`:
         ```dockerfile
@@ -84,11 +87,17 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
         *   ¿Cómo mejora la seguridad la creación y uso de un usuario no root (`appuser`)?
         *   ¿Por qué `COPY --from=builder /app /app` (o rutas más específicas) es mejor que `COPY . /app` en la etapa de producción?
 
+**✅ Punto de Verificación ✅**
+*En `Dockerfile.improved`, ¿por qué el paso `RUN addgroup -S appgroup && adduser -S appuser -G appgroup` seguido de `USER appuser` es una práctica más segura que simplemente ejecutar la aplicación como root? ¿Qué riesgos específicos mitiga esto?*
+
 3.  **Notas de Seguridad y Conclusiones KCSA:**
     *   Siempre busque imágenes base mínimas (Alpine, distroless).
     *   Use builds multi-etapa para mantener las imágenes de producción ajustadas y libres de herramientas de construcción.
     *   Ejecute aplicaciones como usuarios no root.
     *   Sea explícito sobre los archivos copiados en la imagen; evite copiar archivos innecesarios (como directorios `.git`, archivos de configuración sensibles).
+
+**🚀 Tarea de Desafío 🚀**
+*Considera el `Dockerfile.improved`. Si la aplicación Python `app.py` necesitara escribir archivos de registro temporales en un directorio `/logs` dentro del contenedor, ¿qué instrucción(es) adicional(es) de Dockerfile se necesitarían para asegurar que el usuario no root `appuser` tenga permiso para hacerlo, sin otorgar permisos excesivos?*
 
 ## Ejercicio 2: Interpretación de Resultados de Escaneo de Vulnerabilidades de Imágenes (Conceptual)
 
@@ -122,6 +131,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
         Description: ...
         ```
 
+**✨ Punto de Predicción ✨**
+*Dados los resultados del escaneo, si tu organización tiene una política de bloquear despliegues con cualquier vulnerabilidad CRÍTICA, pero permite vulnerabilidades ALTAS si aún no hay una corrección disponible en una imagen base estable, ¿cómo procederías con la imagen `nginx:1.18-alpine` basándote en esta salida?*
+
 2.  **Análisis y Discusión:**
     *   Identifique las vulnerabilidades de severidad CRITICAL y HIGH.
     *   Para `CVE-2021-XXXX` en `libcrypto1.1`, ¿cuál es la versión instalada y cuál es la versión corregida?
@@ -132,11 +144,17 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
         *   Considerar bloquear el despliegue si las vulnerabilidades críticas no pueden remediarse inmediatamente.
     *   ¿Por qué es importante escanear no solo las dependencias directas sino también los paquetes del SO en la imagen base?
 
+**✅ Punto de Verificación ✅**
+*Explica la diferencia entre una vulnerabilidad en un paquete del SO (como `libcrypto1.1`) y una vulnerabilidad en el software de la aplicación misma (como `nginx`). ¿Por qué podría diferir la ruta de remediación para estos dos tipos de vulnerabilidades encontradas en la misma imagen?*
+
 3.  **Notas de Seguridad y Conclusiones KCSA:**
     *   El escaneo de imágenes es esencial para identificar vulnerabilidades conocidas.
     *   Concéntrese primero en remediar las vulnerabilidades CRITICAL y HIGH.
     *   El escaneo debe integrarse en los pipelines de CI/CD y en los registros.
     *   Comprenda que "Fixed Version" indica que hay un parche disponible.
+
+**🚀 Tarea de Desafío 🚀**
+*Imagina un escenario donde un escáner de vulnerabilidades reporta una vulnerabilidad de severidad "MEDIA" en una biblioteca, pero tu equipo de desarrollo evalúa que tu aplicación no utiliza la función vulnerable específica dentro de esa biblioteca. ¿Qué proceso o documentación sería esencial para justificar no parchear inmediatamente esta vulnerabilidad, y cuáles son las responsabilidades continuas si eliges aceptar este riesgo?*
 
 ## Ejercicio 3: Comprensión de la Firma de Imágenes y el Control de Admisión (Conceptual)
 
@@ -148,6 +166,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
     *   **Pipeline CI/CD:** Después de construir y probar una imagen, se utiliza una herramienta como `Cosign` (de Sigstore) para firmar la imagen.
     *   **Almacenamiento de Firmas:** La firma puede almacenarse en el registro OCI junto con la imagen o en un registro de transparencia como Rekor.
     *   **Gestión de Claves:** La clave privada utilizada para firmar debe gestionarse de forma segura. La firma sin clave (usando identidades OIDC) es una opción con Sigstore.
+
+**✨ Punto de Predicción ✨**
+*Si un atacante logra comprometer el servidor de construcción del pipeline CI/CD *después* de que se construye una imagen pero *antes* de que se firme, ¿qué tipo de acción maliciosa podría tomar con respecto a la imagen, y cómo ayudaría la firma de imágenes (si se implementa correctamente más adelante en el paso) a mitigar esto?*
 
 2.  **Control de Admisión para Verificación de Firmas (Ejemplo Conceptual):**
     *   Revise un fragmento simplificado de manifiesto de política Kyverno (no aplicar):
@@ -178,6 +199,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
         *   ¿Qué sucede si se despliega una imagen sin firmar o una imagen firmada por una clave no confiable? (El despliegue se bloquea debido a `validationFailureAction: Enforce`).
         *   ¿De dónde proviene la clave pública para la verificación? (Está configurada en la política y debe corresponder a la clave privada utilizada para firmar en CI/CD).
     *   **Nota de Seguridad:** La firma de imágenes y el control de admisión proporcionan fuertes garantías de que solo se ejecutan imágenes confiables y verificadas en su clúster.
+
+**🚀 Tarea de Desafío 🚀**
+*Además de verificar firmas usando una clave pública, herramientas como Kyverno a menudo pueden verificar imágenes contra otras atestaciones (por ejemplo, de la firma sin clave de Sigstore). Si una imagen fue firmada "sin clave" usando la identidad OIDC de un sistema CI/CD, ¿qué detalles específicos necesitaría verificar una política de controlador de admisión para asegurar que la imagen fue firmada por el pipeline CI/CD confiable de *tu organización* y no por el pipeline de un actor malicioso?*
 
 ## Ejercicio 4: Revisión de un Ejemplo de Lista de Materiales de Software (SBOM)
 
@@ -223,12 +247,18 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
       ]
     }
     ```
+
+**✨ Punto de Predicción ✨**
+*Observando el SBOM, si se descubriera que `requests` versión `2.28.1` tiene una vulnerabilidad crítica, pero `urllib3` versión `1.26.12` está bien, ¿se consideraría `my-web-app` todavía afectado? ¿Por qué es importante entender el árbol de dependencias completo?*
 2.  **Análisis y Discusión:**
     *   Identifique una dependencia directa de `my-web-app`. (por ejemplo, `requests`)
     *   Identifique una dependencia transitiva. (por ejemplo, `urllib3` es una dependencia de `requests`)
     *   Si se anuncia un nuevo CVE para `urllib3` versión `1.26.12`, ¿cómo ayudaría este SBOM a evaluar rápidamente el impacto? (Permite ver rápidamente que `my-web-app` está afectado porque usa `requests` que a su vez usa el `urllib3` vulnerable).
     *   ¿Qué otra información está presente (herramienta utilizada, marca de tiempo, SO)?
     *   **Nota de Seguridad:** Los SBOMs proporcionan transparencia sobre los componentes de software, ayudando en la gestión de vulnerabilidades, cumplimiento de licencias y comprensión de los riesgos de la cadena de suministro.
+
+**🚀 Tarea de Desafío 🚀**
+*Los SBOMs pueden generarse en varios formatos (SPDX, CycloneDX, etc.). Investiga y nombra una ventaja clave de usar un formato SBOM estandarizado en comparación con un formato propietario o de texto personalizado para las dependencias. ¿Cómo contribuye esta ventaja a una mejor gestión general de la seguridad de la cadena de suministro?*
 
 ## Ejercicio 5: Prácticas Seguras de CI/CD (Discusión Conceptual)
 
@@ -242,6 +272,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
     *   Subir la imagen a un registro de contenedores privado.
     *   Desplegar la aplicación (actualizando un Deployment) en un clúster de Kubernetes.
 
+**✨ Punto de Predicción ✨**
+*De las cuatro responsabilidades listadas para el pipeline CI/CD, ¿qué paso, si se compromete, probablemente otorgaría a un atacante la capacidad más directa y generalizada para desplegar cargas de trabajo maliciosas en el clúster de Kubernetes?*
+
 2.  **Puntos de Discusión:**
     *   **Credenciales del Registro:**
         *   ¿Cómo debería autenticarse el pipeline en el registro de contenedores privado para subir la imagen? (por ejemplo, usando tokens de corta duración, credenciales de cuenta de servicio para el sistema CI/CD, gestión de secretos incorporada de la plataforma como secretos de GitHub Actions).
@@ -254,6 +287,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
     *   **Integridad del Pipeline:** ¿Cómo protegería la definición del propio pipeline (por ejemplo, `Jenkinsfile`, `.github/workflows/`) de modificaciones no autorizadas? (Revisiones de código, protección de ramas en el repositorio SCM que almacena estos archivos).
     *   **Nota de Seguridad:** Los pipelines CI/CD son infraestructura crítica y un objetivo principal. Asegurarlos con el menor privilegio, gestión de secretos y verificaciones de integridad es vital.
 
+**🚀 Tarea de Desafío 🚀**
+*Un pipeline CI/CD utiliza un token estático de larga duración para autenticarse en Kubernetes. Describe un método de autenticación alternativo más seguro que el pipeline podría usar, especialmente cuando se ejecuta en un proveedor de nube o en un clúster de Kubernetes que admita la federación de identidades de carga de trabajo. ¿Cuáles son los beneficios de esta alternativa?*
+
 ## Ejercicio 6: Análisis de la Configuración de un Repositorio de Artefactos (Conceptual)
 
 **Objetivo:** Considerar las configuraciones de seguridad para un repositorio de artefactos (imágenes).
@@ -261,6 +297,9 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
 **Instrucciones (Puntos de Discusión):**
 
 1.  **Escenario:** Una organización utiliza un repositorio de imágenes privado (por ejemplo, Harbor, Artifactory, AWS ECR, GCP Artifact Registry).
+
+**✨ Punto de Predicción ✨**
+*Si un repositorio de artefactos *no* admite el escaneo de vulnerabilidades integrado, ¿cuál es un desafío clave que enfrentan las organizaciones para garantizar que sus imágenes almacenadas permanezcan seguras a lo largo del tiempo, incluso si fueron escaneadas como "limpias" durante el CI/CD?*
 
 2.  **Puntos de Discusión:**
     *   **Controles de Acceso:**
@@ -271,10 +310,16 @@ Esta guía de laboratorio proporciona ejercicios enfocados en comprender y anali
         *   ¿Por qué es beneficioso que el propio repositorio admita o se integre con escáneres de vulnerabilidades? (Puede re-escanear imágenes periódicamente a medida que se encuentran nuevos CVEs, puede proporcionar un panel central de vulnerabilidades en todas las imágenes almacenadas).
     *   **Políticas de Retención y Limpieza de Imágenes:**
         *   ¿Cuáles son los beneficios de tener políticas para eliminar imágenes antiguas, no utilizadas o altamente vulnerables? (Reduce los costos de almacenamiento, reduce el riesgo de desplegar por error software con vulnerabilidades conocidas).
+
+**✅ Punto de Verificación ✅**
+*Con respecto a los controles de acceso para un repositorio de imágenes, ¿por qué es importante diferenciar entre los permisos para `subir` (push) imágenes y los permisos para `bajar` (pull) imágenes? Proporciona un ejemplo de un principal que podría solo necesitar acceso de `bajada` y uno que necesitaría acceso de `subida`.*
     *   **Replicación y Proxy:**
         *   Si el repositorio replica imágenes a otras regiones/registros, ¿cómo debe asegurarse esto? (Canales seguros, verificaciones de integridad).
         *   Si el repositorio actúa como una caché de paso (pull-through cache) para registros públicos (como Docker Hub), ¿qué políticas deberían existir? (por ejemplo, solo almacenar en caché/hacer proxy de imágenes oficiales, escanear imágenes obtenidas por proxy).
     *   **Nota de Seguridad:** Un repositorio de artefactos bien asegurado es un punto de control clave en la cadena de suministro de software.
+
+**🚀 Tarea de Desafío 🚀**
+*Muchas organizaciones utilizan etiquetas inmutables para sus imágenes de contenedor de producción (por ejemplo, `myapp:1.2.3-prod` nunca debería sobrescribirse). ¿Cómo pueden las características de un repositorio de imágenes (o la falta de ellas) apoyar u obstaculizar la aplicación de etiquetas inmutables? ¿Cuál es el riesgo si las etiquetas son mutables en un contexto de producción?*
 
 Estos ejercicios conceptuales deberían ayudar a consolidar su comprensión de las diferentes facetas de la seguridad de la cadena de suministro de software relevantes para KCSA.
 
