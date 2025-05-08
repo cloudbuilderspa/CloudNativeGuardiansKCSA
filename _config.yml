@@ -8,7 +8,7 @@ search_enabled: true
 # Auxiliary links for the header
 aux_links:
   "View on GitHub":
-    - "https://github.com/asuresky/CloudNativeGuardiansKCSA"
+    - "https://cloudbuilderspa.github.io/CloudNativeGuardiansKCSA"
 
 # Default color scheme
 color_scheme: nil # Can be 'dark' or 'light' or nil for user choice
