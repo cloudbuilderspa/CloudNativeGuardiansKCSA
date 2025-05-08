@@ -1,0 +1,149 @@
+# Etiquetas: enforce, warn y audit
+# Labels: enforce, warn and audit
+
+# Enforce (Aplicar):
+
+# Inglés: The enforce label is used to enforce the pod security standards on the specified namespace. This means any pod that does not comply with the security policies will be denied deployment in the namespace.
+# Español: La etiqueta enforce se utiliza para aplicar los estándares de seguridad de pods en el namespace especificado. Esto significa que cualquier pod que no cumpla con las políticas de seguridad será rechazado y no se desplegará en el namespace.
+
+
+# Warn (Advertir):
+# Inglés: The warn label is used to issue warnings for any pod that does not comply with the pod security standards. The pod will still be deployed, but a warning will be logged indicating that the pod does not meet the security criteria.
+# Español: La etiqueta warn se utiliza para emitir advertencias para cualquier pod que no cumpla con los estándares de seguridad de pods. El pod aún se desplegará, pero se registrará una advertencia indicando que el pod no cumple con los criterios de seguridad.
+
+
+# Audit (Auditar)
+# Inglés: The audit label is used to audit pods against the pod security standards. This means that any non-compliant pod will be logged for audit purposes, allowing administrators to review and analyze the security posture of their deployments.
+# Español: La etiqueta audit se utiliza para auditar los pods contra los estándares de seguridad de pods. Esto significa que cualquier pod no conforme se registrará con fines de auditoría, permitiendo a los administradores revisar y analizar la postura de seguridad de sus despliegues.
+
+
+
+################################################
+
+# Sistemas de Seguridad: privileged, baseline y restrictive
+# Privileged (Privilegiado)
+
+# Inglés: The privileged pod security standard allows for most security capabilities, including privileged containers, hostPath volumes, and other elevated permissions. It is typically used for trusted workloads that require high levels of access.
+# Español: El estándar de seguridad de pods privileged permite la mayoría de las capacidades de seguridad, incluidos contenedores privilegiados, volúmenes hostPath y otros permisos elevados. Generalmente se utiliza para cargas de trabajo confiables que requieren altos niveles de acceso.
+# Baseline (Línea Base)
+
+# Inglés: The baseline pod security standard provides a middle ground, allowing some restricted capabilities but disallowing others. It is designed to balance security and usability, making it suitable for general workloads that do not need elevated permissions.
+# Español: El estándar de seguridad de pods baseline proporciona un punto intermedio, permitiendo algunas capacidades restringidas pero no otras. Está diseñado para equilibrar la seguridad y la usabilidad, haciéndolo adecuado para cargas de trabajo generales que no necesitan permisos elevados.
+# Restrictive (Restrictivo)
+
+# Inglés: The restrictive pod security standard enforces the highest level of security by disallowing privileged operations, hostPath volumes, and other high-risk capabilities. It is intended for highly secure environments where strict security controls are required.
+# Español: El estándar de seguridad de pods restrictive impone el nivel más alto de seguridad al no permitir operaciones privilegiadas, volúmenes hostPath y otras capacidades de alto riesgo. Está destinado a entornos altamente seguros donde se requieren controles de seguridad estrictos.
+
+################################################
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: permissive-ns
+  labels:
+    # Enforces the privileged Pod Security Standard on this namespace, allowing privileged operations.
+    pod-security.kubernetes.io/enforce: privileged
+    # Issues a warning if a pod does not comply with the privileged Pod Security Standard.
+    pod-security.kubernetes.io/warn: privileged
+    # Audits pod security violations against the privileged Pod Security Standard.
+    pod-security.kubernetes.io/audit: privileged
+  annotations:
+    description: "Namespace with permissive Pod Security Standards"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: restrictive-ns
+  labels:
+    # Enforces the restricted Pod Security Standard on this namespace, disallowing privileged operations.
+    pod-security.kubernetes.io/enforce: restricted
+    # Issues a warning if a pod does not comply with the restricted Pod Security Standard.
+    pod-security.kubernetes.io/warn: restricted
+    # Audits pod security violations against the restricted Pod Security Standard.
+    pod-security.kubernetes.io/audit: restricted
+  annotations:
+    description: "Namespace with restrictive Pod Security Standards"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: baseline-ns
+  labels:
+    # Enforces the baseline Pod Security Standard on this namespace, allowing some restricted operations.
+    pod-security.kubernetes.io/enforce: baseline
+    # Issues a warning if a pod does not comply with the baseline Pod Security Standard.
+    pod-security.kubernetes.io/warn: baseline
+    # Audits pod security violations against the baseline Pod Security Standard.
+    pod-security.kubernetes.io/audit: baseline
+  annotations:
+    description: "Namespace with baseline Pod Security Standards"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: permissive-ns
+  annotations:
+    description: "Default ServiceAccount for permissive-ns"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: restrictive-ns
+  annotations:
+    description: "Default ServiceAccount for restrictive-ns"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: baseline-ns
+  annotations:
+    description: "Default ServiceAccount for baseline-ns"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: permissive-pod
+  namespace: permissive-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restrictive-pod
+  namespace: restrictive-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: baseline-pod
+  namespace: baseline-ns
+  annotations:
+    description: "Pod in baseline namespace with balanced privileges"
+spec:
+  serviceAccountName: default
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL

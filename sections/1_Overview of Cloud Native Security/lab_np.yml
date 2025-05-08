@@ -1,0 +1,164 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: network-policy-ns
+  annotations:
+    description: "Namespace with network security policies"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-curl
+  namespace: network-policy-ns
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: curl-container
+    image: curlimages/curl
+    command: ["sh", "-c", "while true; do sleep 3600; done"]
+    ports:
+    - containerPort: 80
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+  namespace: network-policy-ns
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: web-container
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-1
+  namespace: network-policy-ns
+spec:
+  selector:
+    app: myapp
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-2
+  namespace: network-policy-ns
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: web-container
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-2
+  namespace: network-policy-ns
+spec:
+  selector:
+    app: myapp
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-3
+  namespace: network-policy-ns
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: web-container
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-3
+  namespace: network-policy-ns
+spec:
+  selector:
+    app: myapp
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-http
+  namespace: network-policy-ns
+  annotations:
+    description: "Allow HTTP traffic to pods with the label 'app: myapp'"
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: myapp
+    ports:
+    - protocol: TCP
+      port: 80
+---
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-http
+  namespace: network-policy-ns
+  annotations:
+    description: "Allow HTTP traffic to pods with the label 'app: myapp'"
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: myapp
+    ports:
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-egress
+  namespace: network-policy-ns
+  annotations:
+    description: "Deny all egress traffic from pods in the namespace"
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Egress
+  egress: []
+
