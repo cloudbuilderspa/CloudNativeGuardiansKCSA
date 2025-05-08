@@ -106,6 +106,36 @@ graph LR
 ### Seguridad de Etcd
 
 *   **Rol:** `etcd` es un almacén de clave-valor consistente y altamente disponible utilizado como el almacén de respaldo de Kubernetes para todos los datos del clúster. Almacena los datos de configuración, el estado y los metadatos del clúster.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    APIServer["Kubernetes API Server"]
+    Etcd["etcd Cluster (Data Store)"]
+    OtherComponents["Other K8s Components <br/> (kubectl, Controller Mgr, Scheduler, Kubelets)"]
+
+    OtherComponents -- "API Requests (TLS, AuthN/AuthZ)" --> APIServer
+    APIServer -- "Data CRUD Operations <br/> (mTLS: Client Cert AuthN <br/> TLS: Encryption in Transit)" --> Etcd
+    Etcd -- "Data Encrypted at Rest" --- Etcd
+
+    subgraph "Restricted Zone: Direct Etcd Access"
+        direction LR
+        DirectAccess["External/Unauthorized Access"]
+        style DirectAccess fill:#FADBD8,stroke:#A93226
+        DirectAccess --X|BLOCKED (Firewall/Network Policy)| Etcd
+    end
+
+    classDef controlPlane fill:#D6EAF8,stroke:#333,stroke-width:2px;
+    class APIServer, Etcd controlPlane;
+
+    classDef components fill:#E8DAEF,stroke:#333,stroke-width:2px;
+    class OtherComponents components;
+
+    linkStyle 2 stroke:green,stroke-width:1.5px;
+    linkStyle 3 stroke:red,stroke-width:2px,stroke-dasharray:5,5;
+</div>
+{% endraw %}
+
 *   **Consideraciones Clave de Seguridad y Mejores Prácticas:**
     *   **Control de Acceso:** Restringir el acceso a `etcd` únicamente al API Server. Ningún otro componente debe interactuar directamente con `etcd`.
     *   **Cifrado (Encryption):**
@@ -128,6 +158,42 @@ Los componentes del nodo se ejecutan en cada nodo trabajador (worker node), mant
 ### Seguridad del Kubelet
 
 *   **Rol:** El Kubelet es un agente que se ejecuta en cada nodo del clúster. Se asegura de que los contenedores se ejecuten en un Pod según lo especificado por el plano de control. No gestiona contenedores que no fueron creados por Kubernetes.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "Kubernetes Node"
+        Kubelet["Kubelet"]
+        ContainerRuntime["Container Runtime <br/> (e.g., containerd, CRI-O)"]
+        KubeletAPI["Kubelet API Endpoint <br/> (Port 10250)"]
+        style KubeletAPI fill:#EAECEE,stroke:#909497
+        ReadOnlyPort["Read-Only API Endpoint <br/> (Port 10255 - Often disabled)"]
+        style ReadOnlyPort fill:#FEF9E7,stroke:#F39C12
+
+        Kubelet -- "CRI (gRPC)" --> ContainerRuntime
+        Kubelet --- KubeletAPI
+        Kubelet --- ReadOnlyPort
+    end
+
+    APIServer["Kubernetes API Server"]
+
+    Kubelet -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> Kubelet
+
+    Client["Authorized Clients <br/> (e.g., Metrics Server, kubectl proxy)"] -- "HTTPS <br/> (Requires AuthN/AuthZ)" --> KubeletAPI
+    UnauthClient["Potentially Unauthorized Access"] -.->|Usually Blocked or No AuthZ| ReadOnlyPort
+
+    classDef controlPlane fill:#D6EAF8,stroke:#333,stroke-width:2px;
+    class APIServer controlPlane;
+    classDef nodeComponents fill:#D5F5E3,stroke:#333,stroke-width:2px;
+    class Kubelet,ContainerRuntime nodeComponents;
+    classDef client fill:#E8DAEF,stroke:#333,stroke-width:2px;
+    class Client,UnauthClient client;
+
+    linkStyle 3 stroke:red,stroke-dasharray:5,5;
+</div>
+{% endraw %}
+
 *   **Consideraciones Clave de Seguridad y Mejores Prácticas:**
     *   **Autenticación y Autorización:**
         *   Asegurar la API del Kubelet. Habilitar la autenticación (por ejemplo, certificados de cliente) y la autorización (por ejemplo, RBAC a través del modo webhook) para las solicitudes a la API del Kubelet.
@@ -193,8 +259,32 @@ Los componentes del nodo se ejecutan en cada nodo trabajador (worker node), mant
 
 *   **Rol:** Las redes de contenedores permiten la comunicación entre contenedores, Pods, Servicios y redes externas. Kubernetes utiliza varios plugins CNI (Container Network Interface) para implementar la red.
 *   **Consideraciones Clave de Seguridad y Mejores Prácticas:**
-    *   **Políticas de Red (Network Policies):** Implementar Network Policies para segmentar el tráfico de red dentro del clúster, aplicando una postura de "denegación por defecto" siempre que sea posible.
-    *   **Seguridad del Plugin CNI:** Elegir un plugin CNI que admita Network Policies y tenga un buen historial de seguridad. Mantenerlo actualizado.
+*   **Políticas de Red (Network Policies):** Implementar Network Policies para segmentar el tráfico de red dentro del clúster, aplicando una postura de "denegación por defecto" siempre que sea posible.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "Before Network Policy"
+        PodA1["Pod A (client)"] -->|TCP 80 Connection: ALLOWED| PodB1["Pod B (server)"]
+    end
+
+    subgraph "After 'Default Deny' Ingress Policy on Pod B"
+        PodA2["Pod A (client)"] -.->|TCP 80 Connection: DENIED| PodB2["Pod B (server, app=backend)"]
+        NetPol["NetworkPolicy <br/> selects app=backend <br/> spec: <br/>  ingress: [] <br/> (Denies All Ingress)"] -.-> PodB2
+    end
+
+    classDef pods fill:#D5F5E3,stroke:#333,stroke-width:2px;
+    class PodA1,PodB1,PodA2,PodB2 pods;
+    classDef netpol fill:#FFF3CD,stroke:#333,stroke-width:2px;
+    class NetPol netpol;
+
+    linkStyle 0 stroke:green,stroke-width:2px;
+    linkStyle 1 stroke:red,stroke-width:2px,stroke-dasharray:5,5;
+    linkStyle 2 stroke:#aaa,stroke-width:1px,stroke-dasharray:2,2;
+</div>
+{% endraw %}
+
+*   **Seguridad del Plugin CNI:** Elegir un plugin CNI que admita Network Policies y tenga un buen historial de seguridad. Mantenerlo actualizado.
     *   **Cifrado:** Considerar el uso de un Service Mesh (como Istio, Linkerd) o plugins CNI que admitan el cifrado transparente del tráfico (por ejemplo, basados en WireGuard) para la comunicación entre Pods si hay datos sensibles involucrados.
     *   **Segmentación de Red:** Segmentar lógicamente la red de su clúster usando Namespaces y Network Policies.
     *   **Control de Egreso (Egress Control):** Controlar el tráfico saliente de los Pods para limitar el radio de impacto de un Pod comprometido.

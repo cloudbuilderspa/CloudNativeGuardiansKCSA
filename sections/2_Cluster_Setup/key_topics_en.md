@@ -20,6 +20,34 @@ The API Server is the gateway to your cluster. Beyond basic authentication and a
     *   **Token Exposure:** If a Pod is compromised, its service account token can be exfiltrated.
     *   **Least Privilege:** Service accounts should only be granted the minimum RBAC permissions necessary for their function. Avoid using the `default` service account, which often has overly broad permissions or is used by many Pods. Create specific service accounts per application.
     *   **Token Volume Projection:** Use `TokenVolumeProjection` for service account tokens. This feature allows for short-lived, audience-bound tokens that are automatically rotated by the Kubelet. This significantly reduces the risk associated with token theft.
+
+{% raw %}
+<div class="mermaid">
+sequenceDiagram
+    participant P as Pod
+    participant K as Kubelet
+    participant APITR as API Server (TokenRequest API)
+    participant APISec as API Server (Secret API - Legacy)
+    participant SATokenSecret as Legacy SA Token (Secret)
+
+    P->>K: Needs Service Account Token (via Projected Volume)
+    K->>APITR: Request Projected Token (audience-bound, short-lived)
+    APITR-->>K: Issues Time-Limited Projected Token
+    K->>P: Mounts/Updates Projected Token in Pod
+
+    P->>APITR: Accesses API Server (using Projected Token)
+    APITR-->>P: Authorized (if token valid & RBAC allows)
+
+    rect rgb(255, 230, 230)
+        note right of SATokenSecret: Legacy Method (Less Secure): Static Token from Secret
+        K-->>SATokenSecret: Kubelet reads SA Token Secret (once)
+        SATokenSecret-->>K: Provides long-lived static token
+        K-->>P: Mounts static token from Secret
+        P-->>APISec: Accesses API Server (using static token)
+    end
+</div>
+{% endraw %}
+
     *   **Disable Automounting:** For Pods that do not need to access the API Server, disable automatic mounting of service account tokens by setting `automountServiceAccountToken: false` in the Pod or ServiceAccount specification.
 
 ### Webhook Token Authentication &amp; Authorization
@@ -27,6 +55,26 @@ The API Server is the gateway to your cluster. Beyond basic authentication and a
 *   **Explanation:** Kubernetes can be configured to delegate authentication and authorization decisions to external webhook services.
     *   **Authentication Webhook:** The API Server can send a token to an external service to verify a user's identity.
     *   **Authorization Webhook:** After successful authentication, the API Server can query an external service to determine if a user is permitted to perform an action.
+
+{% raw %}
+<div class="mermaid">
+sequenceDiagram
+    participant C as Client (e.g., kubectl)
+    participant KAPI as Kubernetes API Server
+    participant ExtWebhook as External Webhook Server
+
+    C->>KAPI: API Request (with token)
+    KAPI->>ExtWebhook: TokenReview (for AuthN) OR SubjectAccessReview (for AuthZ)
+    Note right of ExtWebhook: Webhook validates token <br/> or checks permissions
+    ExtWebhook-->>KAPI: Review Response (e.g., authenticated: true, user: "X" <br/> OR allowed: true/false)
+    alt Request Authenticated & Authorized
+        KAPI-->>C: API Response (Success)
+    else Request Denied
+        KAPI-->>C: API Response (Error - e.g., 401/403)
+    end
+</div>
+{% endraw %}
+
 *   **Security Challenges &amp; Hardening:**
     *   **Webhook Security:** The webhook endpoint itself must be highly secured (TLS, authentication, authorization). A compromised webhook can grant unauthorized access or escalate privileges.
     *   **Latency &amp; Availability:** Dependency on external webhooks can introduce latency and a single point of failure if the webhook service is unavailable. Implement retries, timeouts, and ensure high availability of the webhook service.
@@ -90,6 +138,47 @@ The Kubelet is a privileged component running on each node, making its security 
     *   Write its own Node status and objects.
     *   Write Pod status and objects for Pods bound to its node.
     *   Read secrets, configmaps, persistent volume claims, and persistent volumes related to Pods bound to its node.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "Kubelet on Node X"
+        K_NodeX["Kubelet (Node X)"]
+    end
+
+    APIServer["Kubernetes API Server"]
+    NodeAuthZ["Node Authorizer"]
+    NodeRestrictAdm["NodeRestriction <br/> Admission Controller"]
+
+    style K_NodeX fill:#D5F5E3,stroke:#333
+    style APIServer fill:#D6EAF8,stroke:#333
+    style NodeAuthZ fill:#E8DAEF,stroke:#333
+    style NodeRestrictAdm fill:#E8DAEF,stroke:#333
+
+    K_NodeX -- "1. Request (e.g., Update Own Node Status)" --> APIServer
+    APIServer -- "2. AuthN Kubelet <br/> (e.g., cert user: system:node:nodeX, group: system:nodes)" --> APIServer
+    APIServer -- "3. Node Authorizer Check" --> NodeAuthZ
+    NodeAuthZ -- "4. Identity Authorized <br/> as Node X Kubelet" --> APIServer
+    APIServer -- "5. NodeRestriction Admission" --> NodeRestrictAdm
+    NodeRestrictAdm -- "6. Request Allowed <br/> (Modifying own Node object)" --> APIServer
+    APIServer -- "7. Action Succeeded" --> K_NodeX
+
+    K_NodeX_Other["Kubelet (Node X)"]
+    style K_NodeX_Other fill:#D5F5E3,stroke:#333
+    
+    K_NodeX_Other -- "1a. Request (e.g., Update Node Y Status)" --> APIServer
+    APIServer -- "2a. AuthN Kubelet" --> APIServer
+    APIServer -- "3a. Node Authorizer Check" --> NodeAuthZ
+    NodeAuthZ -- "4a. Identity Authorized <br/> as Node X Kubelet" --> APIServer
+    APIServer -- "5a. NodeRestriction Admission" --> NodeRestrictAdm
+    NodeRestrictAdm --x| "6a. Request DENIED <br/> (Cannot modify other Node objects)"| APIServer
+    APIServer --x| "7a. Action Failed (Forbidden)"| K_NodeX_Other
+
+    linkStyle 5 stroke:green,stroke-width:2px
+    linkStyle 11 stroke:red,stroke-width:2px
+</div>
+{% endraw %}
+
 *   **Interaction:** Together, these mechanisms ensure that even if a Kubelet's credentials are compromised, the attacker's ability to impact other parts of the cluster is severely limited. This is a crucial defense-in-depth measure.
 
 ## Container Runtimes: Security Profiles
@@ -100,6 +189,39 @@ Securing the container runtime involves more than just keeping it updated. Using
     *   **Seccomp (Secure Computing Mode):** Filters system calls that a container can make to the host kernel. A well-defined seccomp profile restricts the container to only the syscalls it absolutely needs, reducing the kernel's attack surface. Kubernetes provides `RuntimeDefault` seccomp profile and allows custom profiles.
     *   **AppArmor (Application Armor):** A Linux Security Module that restricts individual programs' capabilities (e.g., file access, network access, specific system calls). AppArmor profiles can be loaded per container.
     *   **SELinux (Security-Enhanced Linux):** Another Linux Security Module providing mandatory access control (MAC). SELinux policies define what users and applications can do. It can enforce fine-grained restrictions on container processes.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "A. Definition Phase"
+        direction LR
+        User["User/CI/CD"] -- defines --> PodSpec["Pod Spec <br/> (specifies Security Profile <br/> e.g., Seccomp: RuntimeDefault <br/> AppArmor: localhost/my-profile)"]
+    end
+    
+    subgraph "B. Enforcement on Node"
+        direction TD
+        APIServer["API Server"] -- distributes --> Kubelet
+        Kubelet -- instructs via CRI --> ContainerRuntime["Container Runtime"]
+        ContainerRuntime -- applies profile & starts --> ContainerProcess["Container Process"]
+        ContainerProcess -- attempts syscall/action --> LinuxKernel["Linux Kernel <br/> (LSM: Seccomp/AppArmor/SELinux)"]
+        LinuxKernel -- enforces profile --> ContainerProcess
+    end
+
+    PodSpec --> APIServer
+
+    style User fill:#E8DAEF,stroke:#333
+    style PodSpec fill:#FEF9E7,stroke:#333
+    style APIServer fill:#D6EAF8,stroke:#333
+    style Kubelet fill:#D5F5E3,stroke:#333
+    style ContainerRuntime fill:#D5F5E3,stroke:#333
+    style ContainerProcess fill:#EBF5FB,stroke:#333
+    style LinuxKernel fill:#FDEDEC,stroke:#333
+
+    linkStyle 6 stroke:red,stroke-width:1.5px,color:red
+    note right of LinuxKernel : Kernel allows/denies action based on <br/> the applied Seccomp/AppArmor/SELinux profile.
+</div>
+{% endraw %}
+
 *   **KCSA Level Focus:** For KCSA, understanding *that* these tools exist and *why* they are important for container isolation and reducing attack surface is key. Deep expertise in writing complex profiles is typically beyond KCSA, but knowing they should be applied (e.g., using default profiles or those provided by security-conscious base images) is important.
 *   **Hardening:**
     *   Use the `RuntimeDefault` seccomp profile by default or provide custom, more restrictive profiles.

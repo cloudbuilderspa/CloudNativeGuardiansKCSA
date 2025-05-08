@@ -11,6 +11,40 @@ Cluster hardening involves applying a layered security approach to reduce the at
     *   `Restricted`: Highly restrictive, following current Pod hardening best practices. May require application refactoring for compatibility.
 *   **Pod Security Admission (PSA):** A built-in Kubernetes admission controller that enforces PSS. PSA operates at the namespace level. When enabled, you can configure namespaces to `enforce`, `audit`, or `warn` upon Pod creation if they don't meet a specified PSS level.
 
+{% raw %}
+<div class="mermaid">
+graph TD
+    User["User/CI-CD <br/> (kubectl apply -f pod.yaml)"] --> APIServer["Kubernetes API Server"]
+    
+    APIServer -- "1. Forwards to Admission Chain" --> PSA["Pod Security <br/> Admission Controller"]
+    PSA -- "2. Reads Namespace Labels <br/> (e.g., pod-security.kubernetes.io/enforce=baseline)" --> Namespace["Target Namespace"]
+    PSA -- "3. Evaluates Pod Spec" --> PodSpec["Incoming Pod Specification"]
+    
+    subgraph "4. Decision based on Mode & Compliance"
+        direction LR
+        PSA --> |'enforce' & Compliant| ActionAllow["Allow Pod Creation"]
+        PSA --> |'enforce' & Non-Compliant| ActionReject["Reject Pod Creation (Error to User)"]
+        PSA --> |'audit' & Non-Compliant| ActionAudit["Log Audit Event <br/> (Pod Creation Proceeds)"]
+        PSA --> |'warn' & Non-Compliant| ActionWarn["Warn User <br/> (Pod Creation Proceeds)"]
+    end
+
+    ActionAllow --> APIServer2["API Server (continues flow)"]
+    APIServer2 --> Etcd["etcd (Persist Pod)"]
+    ActionReject --> UserFeedbackError["User Receives Error"]
+    ActionAudit --> AuditLog["Audit Log"]
+    ActionWarn --> UserFeedbackWarn["User Receives Warning"]
+
+    classDef user fill:#E8DAEF,stroke:#333;
+    class User,UserFeedbackError,UserFeedbackWarn user;
+    classDef k8scomponent fill:#D6EAF8,stroke:#333;
+    class APIServer,PSA,Namespace,APIServer2,Etcd,AuditLog k8scomponent;
+    classDef spec fill:#FEF9E7,stroke:#333;
+    class PodSpec spec;
+    classDef action fill:#D5F5E3,stroke:#333;
+    class ActionAllow,ActionReject,ActionAudit,ActionWarn action;
+</div>
+{% endraw %}
+
 **Importance for Cluster Hardening:**
 *   PSS and PSA are crucial for preventing Pods from running with excessive privileges, which is a common vector for container escapes and privilege escalation within the cluster.
 *   They provide a standardized way to apply security best practices to workloads consistently across namespaces.
@@ -53,6 +87,45 @@ Authorization determines whether an *authenticated* entity is permitted to perfo
     *   **RoleBinding:** Grants the permissions defined in a Role to a set of users, groups, or service accounts within a specific namespace.
     *   **ClusterRoleBinding:** Grants the permissions defined in a ClusterRole to subjects cluster-wide.
 
+{% raw %}
+<div class="mermaid">
+graph TD
+    User["User / ServiceAccount <br/> (Authenticated Identity)"] -- "1. API Request (Verb, Resource, Namespace?)" --> APIServer["Kubernetes API Server"]
+    
+    APIServer -- "2. Authorization Decision Needed" --> RBAC["RBAC Authorizer"]
+    
+    subgraph "RBAC Authorization Logic"
+        direction TB
+        RBAC_Start("RBAC Check Starts") --> Q1{Is it a non-resource request <br/> (e.g., /api, /healthz)?};
+        Q1 -- Yes --> AllowNonResource["Allow (if path permitted)"];
+        Q1 -- No (Resource Request) --> GetSubject["3. Get Subject (User, Groups, SA)"];
+        GetSubject --> FindBindings["4. Find RoleBindings (namespaced) <br/> & ClusterRoleBindings (cluster-wide) <br/> that match the Subject"];
+        FindBindings --> Q2{Any matching Bindings?};
+        Q2 -- No --> DenyNoBinding["DENY (No applicable bindings)"];
+        Q2 -- Yes --> GetRoles["5. For each matched Binding, <br/> get the referenced Role / ClusterRole"];
+        GetRoles --> CheckRules["6. For each Role/ClusterRole, <br/> check its 'rules' list"];
+        CheckRules --> Q3{Does any rule match the <br/> requested Verb, Resource, <br/> (and Namespace if Role)?};
+        Q3 -- Yes --> AllowBinding["ALLOW (Permission granted by a rule)"];
+        Q3 -- No (after checking all rules in all matched roles) --> DenyNoRule["DENY (No matching rule in bound roles)"];
+    end
+
+    AllowNonResource --> APIServer;
+    AllowBinding --> APIServer;
+    DenyNoBinding --> APIServer;
+    DenyNoRule --> APIServer;
+    
+    APIServer -- "7a. Action Permitted" --> Success["Execute Request / Return Data"]
+    APIServer -- "7b. Action Denied" --> Failure["Return 403 Forbidden Error"]
+
+    classDef subject fill:#E8DAEF,stroke:#333;
+    class User, Success, Failure subject;
+    classDef k8s fill:#D6EAF8,stroke:#333;
+    class APIServer, RBAC k8s;
+    classDef logic fill:#FEF9E7,stroke:#333;
+    class RBAC_Start, Q1, AllowNonResource, GetSubject, FindBindings, Q2, DenyNoBinding, GetRoles, CheckRules, Q3, AllowBinding, DenyNoRule logic;
+</div>
+{% endraw %}
+
 **Importance for Cluster Hardening:**
 *   RBAC is fundamental for enforcing the Principle of Least Privilege, ensuring users and workloads only have the permissions they absolutely need.
 *   It prevents privilege escalation and limits the blast radius if an account or service account token is compromised.
@@ -74,6 +147,35 @@ Kubernetes Secrets are objects designed to store and manage sensitive informatio
 **How Secrets are Stored:**
 *   By default, Secrets are stored in `etcd` as base64-encoded strings. **Base64 is an encoding, not encryption.**
 *   To protect Secrets effectively, encryption at rest for `etcd` data must be enabled. The API Server handles the encryption/decryption using an encryption provider.
+
+{% raw %}
+<div class="mermaid">
+sequenceDiagram
+    participant User as User/Admin
+    participant KAPI as Kubernetes API Server
+    participant EncProv as Encryption Provider (configured in KAPI)
+    participant ETCD as etcd Data Store
+    participant PodSpec as Pod Spec
+    participant Kubelet
+    participant PodConsuming as Pod (consuming Secret)
+
+    User->>KAPI: 1. `kubectl create secret generic mysecret --from-literal=data="topsecret"`
+    KAPI->>EncProv: 2. Encrypt "topsecret" (if EncryptionConfiguration is active)
+    EncProv-->>KAPI: 2a. Returns encrypted data (e.g., "aBc12XyZ")
+    KAPI->>ETCD: 3. Store Secret `mysecret` (value: base64("aBc12XyZ"))
+    Note over ETCD: Etcd stores base64 of encrypted data. <br/> If no encryption, stores base64 of "topsecret".
+
+    PodSpec->>KAPI: 4. Pod requests Secret `mysecret` (e.g., via volume mount)
+    KAPI->>Kubelet: 5. Instruct Kubelet to provide Secret to Pod
+    Kubelet->>KAPI: 6. Kubelet requests Secret `mysecret` data
+    KAPI->>ETCD: 7. Retrieve `mysecret` (value: base64("aBc12XyZ"))
+    ETCD-->>KAPI: 7a. Returns stored (potentially encrypted) data
+    KAPI->>EncProv: 8. Decrypt base64("aBc12XyZ") (if was encrypted)
+    EncProv-->>KAPI: 8a. Returns original "topsecret"
+    KAPI-->>Kubelet: 9. Provide decrypted "topsecret"
+    Kubelet->>PodConsuming: 10. Mounts/Provides "topsecret" to Pod
+</div>
+{% endraw %}
 
 **Importance for Cluster Hardening:**
 *   Prevents hardcoding sensitive data directly into Pod specifications, container images, or application code.

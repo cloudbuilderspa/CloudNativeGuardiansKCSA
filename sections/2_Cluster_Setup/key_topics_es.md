@@ -21,13 +21,61 @@ El API Server es la puerta de entrada a su clúster. Más allá de la autenticac
     *   **Exposición de Tokens:** Si un Pod se ve comprometido, su token de cuenta de servicio puede ser exfiltrado.
     *   **Menor Privilegio:** A las cuentas de servicio solo se les deben otorgar los permisos RBAC mínimos necesarios para su función. Evitar el uso de la cuenta de servicio `default`, que a menudo tiene permisos demasiado amplios o es utilizada por muchos Pods. Crear cuentas de servicio específicas por aplicación.
     *   **Proyección de Volumen de Token (Token Volume Projection):** Usar `TokenVolumeProjection` para los tokens de cuenta de servicio. Esta característica permite tokens de corta duración, vinculados a una audiencia específica (audience-bound), que son rotados automáticamente por el Kubelet. Esto reduce significativamente el riesgo asociado con el robo de tokens.
-    *   **Deshabilitar Montaje Automático (Disable Automounting):** Para Pods que no necesitan acceder al API Server, deshabilitar el montaje automático de tokens de cuenta de servicio estableciendo `automountServiceAccountToken: false` en la especificación del Pod o del ServiceAccount.
+
+{% raw %}
+<div class="mermaid">
+sequenceDiagram
+    participant P as Pod
+    participant K as Kubelet
+    participant APITR as API Server (TokenRequest API)
+    participant APISec as API Server (Secret API - Legacy)
+    participant SATokenSecret as Legacy SA Token (Secret)
+
+    P->>K: Needs Service Account Token (via Projected Volume)
+    K->>APITR: Request Projected Token (audience-bound, short-lived)
+    APITR-->>K: Issues Time-Limited Projected Token
+    K->>P: Mounts/Updates Projected Token in Pod
+
+    P->>APITR: Accesses API Server (using Projected Token)
+    APITR-->>P: Authorized (if token valid & RBAC allows)
+
+    rect rgb(255, 230, 230)
+        note right of SATokenSecret: Legacy Method (Less Secure): Static Token from Secret
+        K-->>SATokenSecret: Kubelet reads SA Token Secret (once)
+        SATokenSecret-->>K: Provides long-lived static token
+        K-->>P: Mounts static token from Secret
+        P-->>APISec: Accesses API Server (using static token)
+    end
+</div>
+{% endraw %}
+
+    *   **Deshabilitar Montaje Automático (Disable Automounting):** Para Pods que no necesitan acceder al API Server, deshabilite el montaje automático de tokens de cuenta de servicio estableciendo `automountServiceAccountToken: false` en la especificación del Pod o ServiceAccount.
 
 ### Autenticación y Autorización por Webhook de Token
 
 *   **Explicación:** Kubernetes puede configurarse para delegar decisiones de autenticación y autorización a servicios webhook externos.
     *   **Webhook de Autenticación:** El API Server puede enviar un token a un servicio externo para verificar la identidad de un usuario.
     *   **Webhook de Autorización:** Después de una autenticación exitosa, el API Server puede consultar a un servicio externo para determinar si un usuario tiene permiso para realizar una acción.
+
+{% raw %}
+<div class="mermaid">
+sequenceDiagram
+    participant C as Client (e.g., kubectl)
+    participant KAPI as Kubernetes API Server
+    participant ExtWebhook as External Webhook Server
+
+    C->>KAPI: API Request (with token)
+    KAPI->>ExtWebhook: TokenReview (for AuthN) OR SubjectAccessReview (for AuthZ)
+    Note right of ExtWebhook: Webhook validates token <br/> or checks permissions
+    ExtWebhook-->>KAPI: Review Response (e.g., authenticated: true, user: "X" <br/> OR allowed: true/false)
+    alt Request Authenticated & Authorized
+        KAPI-->>C: API Response (Success)
+    else Request Denied
+        KAPI-->>C: API Response (Error - e.g., 401/403)
+    end
+</div>
+{% endraw %}
+
 *   **Desafíos de Seguridad y Fortalecimiento:**
     *   **Seguridad del Webhook:** El propio endpoint del webhook debe estar altamente asegurado (TLS, autenticación, autorización). Un webhook comprometido puede otorgar acceso no autorizado o escalar privilegios.
     *   **Latencia y Disponibilidad:** La dependencia de webhooks externos puede introducir latencia y un punto único de fallo si el servicio webhook no está disponible. Implementar reintentos, tiempos de espera (timeouts) y asegurar la alta disponibilidad del servicio webhook.
@@ -91,6 +139,47 @@ El Kubelet es un componente privilegiado que se ejecuta en cada nodo, lo que hac
     *   Escribir el estado y objetos de su propio Nodo.
     *   Escribir el estado y objetos de Pods vinculados a su nodo.
     *   Leer secrets, configmaps, persistent volume claims y persistent volumes relacionados con Pods vinculados a su nodo.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "Kubelet on Node X"
+        K_NodeX["Kubelet (Node X)"]
+    end
+
+    APIServer["Kubernetes API Server"]
+    NodeAuthZ["Node Authorizer"]
+    NodeRestrictAdm["NodeRestriction <br/> Admission Controller"]
+
+    style K_NodeX fill:#D5F5E3,stroke:#333
+    style APIServer fill:#D6EAF8,stroke:#333
+    style NodeAuthZ fill:#E8DAEF,stroke:#333
+    style NodeRestrictAdm fill:#E8DAEF,stroke:#333
+
+    K_NodeX -- "1. Request (e.g., Update Own Node Status)" --> APIServer
+    APIServer -- "2. AuthN Kubelet <br/> (e.g., cert user: system:node:nodeX, group: system:nodes)" --> APIServer
+    APIServer -- "3. Node Authorizer Check" --> NodeAuthZ
+    NodeAuthZ -- "4. Identity Authorized <br/> as Node X Kubelet" --> APIServer
+    APIServer -- "5. NodeRestriction Admission" --> NodeRestrictAdm
+    NodeRestrictAdm -- "6. Request Allowed <br/> (Modifying own Node object)" --> APIServer
+    APIServer -- "7. Action Succeeded" --> K_NodeX
+
+    K_NodeX_Other["Kubelet (Node X)"]
+    style K_NodeX_Other fill:#D5F5E3,stroke:#333
+    
+    K_NodeX_Other -- "1a. Request (e.g., Update Node Y Status)" --> APIServer
+    APIServer -- "2a. AuthN Kubelet" --> APIServer
+    APIServer -- "3a. Node Authorizer Check" --> NodeAuthZ
+    NodeAuthZ -- "4a. Identity Authorized <br/> as Node X Kubelet" --> APIServer
+    APIServer -- "5a. NodeRestriction Admission" --> NodeRestrictAdm
+    NodeRestrictAdm --x| "6a. Request DENIED <br/> (Cannot modify other Node objects)"| APIServer
+    APIServer --x| "7a. Action Failed (Forbidden)"| K_NodeX_Other
+
+    linkStyle 5 stroke:green,stroke-width:2px
+    linkStyle 11 stroke:red,stroke-width:2px
+</div>
+{% endraw %}
+
 *   **Interacción:** Juntos, estos mecanismos aseguran que incluso si las credenciales de un Kubelet se ven comprometidas, la capacidad del atacante para impactar otras partes del clúster es severamente limitada. Esta es una medida crucial de defensa en profundidad.
 
 ## Entornos de Ejecución de Contenedores (Container Runtimes): Perfiles de Seguridad

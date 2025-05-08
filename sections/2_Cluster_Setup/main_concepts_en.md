@@ -105,6 +105,36 @@ graph LR
 ### Etcd Security
 
 *   **Role:** `etcd` is a consistent and highly-available key-value store used as Kubernetes' backing store for all cluster data. It stores the configuration data, state, and metadata of the cluster.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    APIServer["Kubernetes API Server"]
+    Etcd["etcd Cluster (Data Store)"]
+    OtherComponents["Other K8s Components <br/> (kubectl, Controller Mgr, Scheduler, Kubelets)"]
+
+    OtherComponents -- "API Requests (TLS, AuthN/AuthZ)" --> APIServer
+    APIServer -- "Data CRUD Operations <br/> (mTLS: Client Cert AuthN <br/> TLS: Encryption in Transit)" --> Etcd
+    Etcd -- "Data Encrypted at Rest" --- Etcd
+
+    subgraph "Restricted Zone: Direct Etcd Access"
+        direction LR
+        DirectAccess["External/Unauthorized Access"]
+        style DirectAccess fill:#FADBD8,stroke:#A93226
+        DirectAccess --X|BLOCKED (Firewall/Network Policy)| Etcd
+    end
+
+    classDef controlPlane fill:#D6EAF8,stroke:#333,stroke-width:2px;
+    class APIServer, Etcd controlPlane;
+
+    classDef components fill:#E8DAEF,stroke:#333,stroke-width:2px;
+    class OtherComponents components;
+
+    linkStyle 2 stroke:green,stroke-width:1.5px;
+    linkStyle 3 stroke:red,stroke-width:2px,stroke-dasharray:5,5;
+</div>
+{% endraw %}
+
 *   **Key Security Considerations &amp; Best Practices:**
     *   **Access Control:** Restrict access to `etcd` to only the API Server. No other component should directly interact with `etcd`.
     *   **Encryption:**
@@ -127,6 +157,42 @@ Node components run on every worker node, maintaining running pods and providing
 ### Kubelet Security
 
 *   **Role:** The Kubelet is an agent that runs on each node in the cluster. It makes sure that containers are running in a Pod as specified by the control plane. It does not manage containers that were not created by Kubernetes.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "Kubernetes Node"
+        Kubelet["Kubelet"]
+        ContainerRuntime["Container Runtime <br/> (e.g., containerd, CRI-O)"]
+        KubeletAPI["Kubelet API Endpoint <br/> (Port 10250)"]
+        style KubeletAPI fill:#EAECEE,stroke:#909497
+        ReadOnlyPort["Read-Only API Endpoint <br/> (Port 10255 - Often disabled)"]
+        style ReadOnlyPort fill:#FEF9E7,stroke:#F39C12
+
+        Kubelet -- "CRI (gRPC)" --> ContainerRuntime
+        Kubelet --- KubeletAPI
+        Kubelet --- ReadOnlyPort
+    end
+
+    APIServer["Kubernetes API Server"]
+
+    Kubelet -- "TLS, AuthN/AuthZ" --> APIServer
+    APIServer -- "TLS, AuthN/AuthZ" --> Kubelet
+
+    Client["Authorized Clients <br/> (e.g., Metrics Server, kubectl proxy)"] -- "HTTPS <br/> (Requires AuthN/AuthZ)" --> KubeletAPI
+    UnauthClient["Potentially Unauthorized Access"] -.->|Usually Blocked or No AuthZ| ReadOnlyPort
+
+    classDef controlPlane fill:#D6EAF8,stroke:#333,stroke-width:2px;
+    class APIServer controlPlane;
+    classDef nodeComponents fill:#D5F5E3,stroke:#333,stroke-width:2px;
+    class Kubelet,ContainerRuntime nodeComponents;
+    classDef client fill:#E8DAEF,stroke:#333,stroke-width:2px;
+    class Client,UnauthClient client;
+
+    linkStyle 3 stroke:red,stroke-dasharray:5,5;
+</div>
+{% endraw %}
+
 *   **Key Security Considerations &amp; Best Practices:**
     *   **Authentication &amp; Authorization:**
         *   Secure the Kubelet API. Enable authentication (e.g., client certificates) and authorization (e.g., RBAC via webhook mode) for requests to the Kubelet API.
@@ -192,8 +258,32 @@ Node components run on every worker node, maintaining running pods and providing
 
 *   **Role:** Container networking enables communication between containers, Pods, Services, and external networks. Kubernetes uses various CNI (Container Network Interface) plugins to implement networking.
 *   **Key Security Considerations &amp; Best Practices:**
-    *   **Network Policies:** Implement Network Policies to segment network traffic within the cluster, enforcing a "default deny" posture where possible.
-    *   **CNI Plugin Security:** Choose a CNI plugin that supports Network Policies and has a good security track record. Keep it updated.
+*   **Network Policies:** Implement Network Policies to segment network traffic within the cluster, enforcing a "default deny" posture where possible.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "Before Network Policy"
+        PodA1["Pod A (client)"] -->|TCP 80 Connection: ALLOWED| PodB1["Pod B (server)"]
+    end
+
+    subgraph "After 'Default Deny' Ingress Policy on Pod B"
+        PodA2["Pod A (client)"] -.->|TCP 80 Connection: DENIED| PodB2["Pod B (server, app=backend)"]
+        NetPol["NetworkPolicy <br/> selects app=backend <br/> spec: <br/>  ingress: [] <br/> (Denies All Ingress)"] -.-> PodB2
+    end
+
+    classDef pods fill:#D5F5E3,stroke:#333,stroke-width:2px;
+    class PodA1,PodB1,PodA2,PodB2 pods;
+    classDef netpol fill:#FFF3CD,stroke:#333,stroke-width:2px;
+    class NetPol netpol;
+
+    linkStyle 0 stroke:green,stroke-width:2px;
+    linkStyle 1 stroke:red,stroke-width:2px,stroke-dasharray:5,5;
+    linkStyle 2 stroke:#aaa,stroke-width:1px,stroke-dasharray:2,2;
+</div>
+{% endraw %}
+
+*   **CNI Plugin Security:** Choose a CNI plugin that supports Network Policies and has a good security track record. Keep it updated.
     *   **Encryption:** Consider using a Service Mesh (like Istio, Linkerd) or CNI plugins that support transparent traffic encryption (e.g., WireGuard based) for inter-Pod communication if sensitive data is involved.
     *   **Network Segmentation:** Logically segment your cluster network using Namespaces and Network Policies.
     *   **Egress Control:** Control outbound traffic from Pods to limit the blast radius of a compromised Pod.

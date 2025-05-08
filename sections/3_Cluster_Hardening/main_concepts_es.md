@@ -11,6 +11,40 @@ El fortalecimiento (hardening) del clúster implica aplicar un enfoque de seguri
     *   `Restricted`: Altamente restrictivo, siguiendo las mejores prácticas actuales de fortalecimiento de Pods. Puede requerir refactorización de aplicaciones para compatibilidad.
 *   **Pod Security Admission (PSA):** Un controlador de admisión (admission controller) incorporado en Kubernetes que aplica los PSS. PSA opera a nivel de namespace. Cuando está habilitado, puede configurar namespaces para `enforce` (aplicar), `audit` (auditar) o `warn` (advertir) durante la creación de Pods si no cumplen con un nivel PSS especificado.
 
+{% raw %}
+<div class="mermaid">
+graph TD
+    User["User/CI-CD <br/> (kubectl apply -f pod.yaml)"] --> APIServer["Kubernetes API Server"]
+    
+    APIServer -- "1. Forwards to Admission Chain" --> PSA["Pod Security <br/> Admission Controller"]
+    PSA -- "2. Reads Namespace Labels <br/> (e.g., pod-security.kubernetes.io/enforce=baseline)" --> Namespace["Target Namespace"]
+    PSA -- "3. Evaluates Pod Spec" --> PodSpec["Incoming Pod Specification"]
+    
+    subgraph "4. Decision based on Mode & Compliance"
+        direction LR
+        PSA --> |'enforce' & Compliant| ActionAllow["Allow Pod Creation"]
+        PSA --> |'enforce' & Non-Compliant| ActionReject["Reject Pod Creation (Error to User)"]
+        PSA --> |'audit' & Non-Compliant| ActionAudit["Log Audit Event <br/> (Pod Creation Proceeds)"]
+        PSA --> |'warn' & Non-Compliant| ActionWarn["Warn User <br/> (Pod Creation Proceeds)"]
+    end
+
+    ActionAllow --> APIServer2["API Server (continues flow)"]
+    APIServer2 --> Etcd["etcd (Persist Pod)"]
+    ActionReject --> UserFeedbackError["User Receives Error"]
+    ActionAudit --> AuditLog["Audit Log"]
+    ActionWarn --> UserFeedbackWarn["User Receives Warning"]
+
+    classDef user fill:#E8DAEF,stroke:#333;
+    class User,UserFeedbackError,UserFeedbackWarn user;
+    classDef k8scomponent fill:#D6EAF8,stroke:#333;
+    class APIServer,PSA,Namespace,APIServer2,Etcd,AuditLog k8scomponent;
+    classDef spec fill:#FEF9E7,stroke:#333;
+    class PodSpec spec;
+    classDef action fill:#D5F5E3,stroke:#333;
+    class ActionAllow,ActionReject,ActionAudit,ActionWarn action;
+</div>
+{% endraw %}
+
 **Importancia para el Fortalecimiento del Clúster:**
 *   PSS y PSA son cruciales para evitar que los Pods se ejecuten con privilegios excesivos, lo cual es un vector común para escapes de contenedores y escalada de privilegios dentro del clúster.
 *   Proporcionan una forma estandarizada de aplicar las mejores prácticas de seguridad a las cargas de trabajo de manera consistente en todos los namespaces.
@@ -52,6 +86,45 @@ La autorización determina si una entidad *autenticada* tiene permiso para reali
     *   **ClusterRole:** Similar a un Role, pero su alcance es a nivel de todo el clúster. Puede otorgar permisos sobre recursos de alcance de clúster (como `nodes`) o sobre recursos dentro de namespaces en todos los namespaces.
     *   **RoleBinding:** Otorga los permisos definidos en un Role a un conjunto de usuarios, grupos o cuentas de servicio dentro de un namespace específico.
     *   **ClusterRoleBinding:** Otorga los permisos definidos en un ClusterRole a sujetos a nivel de todo el clúster.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    User["User / ServiceAccount <br/> (Authenticated Identity)"] -- "1. API Request (Verb, Resource, Namespace?)" --> APIServer["Kubernetes API Server"]
+    
+    APIServer -- "2. Authorization Decision Needed" --> RBAC["RBAC Authorizer"]
+    
+    subgraph "RBAC Authorization Logic"
+        direction TB
+        RBAC_Start("RBAC Check Starts") --> Q1{Is it a non-resource request <br/> (e.g., /api, /healthz)?};
+        Q1 -- Yes --> AllowNonResource["Allow (if path permitted)"];
+        Q1 -- No (Resource Request) --> GetSubject["3. Get Subject (User, Groups, SA)"];
+        GetSubject --> FindBindings["4. Find RoleBindings (namespaced) <br/> & ClusterRoleBindings (cluster-wide) <br/> that match the Subject"];
+        FindBindings --> Q2{Any matching Bindings?};
+        Q2 -- No --> DenyNoBinding["DENY (No applicable bindings)"];
+        Q2 -- Yes --> GetRoles["5. For each matched Binding, <br/> get the referenced Role / ClusterRole"];
+        GetRoles --> CheckRules["6. For each Role/ClusterRole, <br/> check its 'rules' list"];
+        CheckRules --> Q3{Does any rule match the <br/> requested Verb, Resource, <br/> (and Namespace if Role)?};
+        Q3 -- Yes --> AllowBinding["ALLOW (Permission granted by a rule)"];
+        Q3 -- No (after checking all rules in all matched roles) --> DenyNoRule["DENY (No matching rule in bound roles)"];
+    end
+
+    AllowNonResource --> APIServer;
+    AllowBinding --> APIServer;
+    DenyNoBinding --> APIServer;
+    DenyNoRule --> APIServer;
+    
+    APIServer -- "7a. Action Permitted" --> Success["Execute Request / Return Data"]
+    APIServer -- "7b. Action Denied" --> Failure["Return 403 Forbidden Error"]
+
+    classDef subject fill:#E8DAEF,stroke:#333;
+    class User, Success, Failure subject;
+    classDef k8s fill:#D6EAF8,stroke:#333;
+    class APIServer, RBAC k8s;
+    classDef logic fill:#FEF9E7,stroke:#333;
+    class RBAC_Start, Q1, AllowNonResource, GetSubject, FindBindings, Q2, DenyNoBinding, GetRoles, CheckRules, Q3, AllowBinding, DenyNoRule logic;
+</div>
+{% endraw %}
 
 **Importancia para el Fortalecimiento del Clúster:**
 *   RBAC es fundamental para aplicar el Principio de Menor Privilegio, asegurando que los usuarios y las cargas de trabajo solo tengan los permisos que absolutamente necesitan.
