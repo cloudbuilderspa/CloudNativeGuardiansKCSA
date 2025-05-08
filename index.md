@@ -20,7 +20,8 @@ The content of this repository is organized into thematic sections, each coverin
 
 ### Main Sections:
 
-1.  **`1_Overview of Cloud Native Security`**: Introduction to the fundamental concepts of security in cloud native environments, including the 4Cs, cloud provider and infrastructure security, controls and frameworks, and more.
+1.  **[1. Overview of Cloud Native Security](/CloudNativeGuardiansKCSA/sections/overview-cloud-native-security/)** 
+    *   ([Visión General de la Seguridad Cloud Native - Español](/CloudNativeGuardiansKCSA/es/sections/vision-general-seguridad-cloud-native/))
 2.  **`2_Cluster_Setup`**: Secure configuration of Kubernetes clusters.
 3.  **`3_Cluster_Hardening`**: Techniques and best practices for strengthening the security of Kubernetes clusters.
 4.  **`4_System_Hardening`**: Strengthening security at the operating system and cluster node level.

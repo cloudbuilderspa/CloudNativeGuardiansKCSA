@@ -19,5 +19,4 @@ footer_content: "Copyright &copy; 2025 CloudNativeGuardiansKCSA. Distributed by 
 # Call to action button in the header (URL will need adjustment post-deployment)
 call_to_action:
   button_text: "Start Studying"
-  url: "/CloudNativeGuardiansKCSA/sections/1_Overview%20of%20Cloud%20Native%20Security/main_concepts_en.html"
-
+  url: "/CloudNativeGuardiansKCSA/sections/overview-cloud-native-security/"

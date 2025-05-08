@@ -1,13 +1,14 @@
+---
+layout: default
+title: "Artifact Repository & Image Security"
+parent: "1. Overview of Cloud Native Security" 
+nav_order: 5
+permalink: /sections/overview-cloud-native-security/artifact-image-security/
+---
 # Artifact Repository and Image Security
 
-## English
+Key aspects of securing artifact repositories and container images include:
 
-Ensure that container image repositories are protected and regularly scanned for vulnerabilities.
-
-Digital Signatures: Use digital signatures to ensure the integrity and authenticity of the images before deployment.
-
-## Spanish
-
-Repositorios de Artefactos: Asegurar que los repositorios de imágenes de contenedores están protegidos y se escanean regularmente en busca de vulnerabilidades.
-
-Firmas Digitales: Uso de firmas digitales para garantizar la integridad y autenticidad de las imágenes antes de su despliegue.
+*   **Repository Protection:** Ensure that container image repositories (artifact repositories) are adequately protected with strong access controls.
+*   **Vulnerability Scanning:** Regularly scan images within repositories for known vulnerabilities.
+*   **Digital Signatures:** Utilize digital signatures to verify the integrity and authenticity of container images before they are deployed to the cluster. This helps ensure that images have not been tampered with and originate from a trusted source.
