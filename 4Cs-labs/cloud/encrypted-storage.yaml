@@ -1,0 +1,109 @@
+# Encrypted Storage Manifest for Cloud Security Lab
+# This manifest demonstrates a complete setup for encrypted storage in Kubernetes,
+# including StorageClass, PersistentVolumeClaim, and Pod configurations.
+# SECURITY BEST PRACTICES:
+# - Always encrypt sensitive data at rest
+# - Use customer-managed keys when possible for better control
+# - Apply resource limits to pods accessing sensitive data
+# - Implement proper access controls for the volumes
+
+---
+# 1. StorageClass with encryption enabled
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: encrypted-storage
+  labels:
+    security.kubernetes.io/encrypted: "true"
+    lab: cloud-security
+provisioner: kubernetes.io/gce-pd  # For GKE, use appropriate provisioner for your cloud
+parameters:
+  type: pd-standard
+  encrypted: "true"  # Enable encryption
+  # Uncomment to use customer-managed keys instead of cloud provider managed keys
+  # diskEncryptionKmsKey: projects/PROJECT_ID/locations/LOCATION/keyRings/RING_NAME/cryptoKeys/KEY_NAME
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# 2. PersistentVolumeClaim using the encrypted StorageClass
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: secure-data-pvc
+  namespace: cloud-security-lab
+  annotations:
+    security.kubernetes.io/data-sensitivity: "sensitive"
+    encryption.security.kubernetes.io/notes: "Encrypted using cloud provider default or CMEK"
+spec:
+  accessModes:
+    - ReadWriteOnce  # Restrict access to a single node for better security
+  storageClassName: encrypted-storage
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# 3. Pod that mounts and uses the encrypted volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secure-data-pod
+  namespace: cloud-security-lab
+  labels:
+    app: secure-data-app
+    security.kubernetes.io/uses-encrypted-storage: "true"
+spec:
+  # Specify security context for the pod
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 2000  # Properly set fsGroup for volume access
+  containers:
+    - name: app
+      image: nginx:stable-alpine  # Using stable and minimal image
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true  # Root FS is read-only for security
+        capabilities:
+          drop:
+            - ALL  # Drop all capabilities for least privilege
+      volumeMounts:
+        - name: secure-data
+          mountPath: "/secure-data"
+          readOnly: false  # Set to true if write access is not needed
+        - name: tmp-dir
+          mountPath: /tmp  # Required when root filesystem is read-only
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+      # Simple liveness probe to ensure container is responsive
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 10
+        periodSeconds: 30
+  volumes:
+    - name: secure-data
+      persistentVolumeClaim:
+        claimName: secure-data-pvc
+    - name: tmp-dir
+      emptyDir: {}  # Ephemeral volume for /tmp
+  # Restrict pod scheduling to nodes with appropriate security features
+  # Uncomment to use node affinity for specific security requirements
+  # affinity:
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerms:
+  #       - matchExpressions:
+  #         - key: security.kubernetes.io/encrypted-node
+  #           operator: In
+  #           values:
+  #           - "true"
+

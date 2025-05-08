@@ -1,0 +1,406 @@
+# Network Security Manifest for Cloud Security Lab
+# This manifest demonstrates comprehensive network security configurations for Kubernetes,
+# including NetworkPolicies, Service Mesh configurations, and Ingress controls.
+# SECURITY BEST PRACTICES:
+# - Implement default-deny policies and explicitly allow required traffic
+# - Enforce TLS for all service communications
+# - Apply least privilege principle to network permissions
+# - Segment network traffic between application tiers
+# - Control both ingress and egress traffic
+
+---
+# 1. Default Deny NetworkPolicy (ingress)
+# This policy blocks all incoming traffic to pods in the specified namespace
+# unless explicitly allowed by other policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    policy-type: default-deny
+spec:
+  podSelector: {}  # Applies to all pods in the namespace
+  policyTypes:
+  - Ingress
+
+---
+# 2. Default Deny NetworkPolicy (egress)
+# This policy blocks all outgoing traffic from pods in the specified namespace
+# unless explicitly allowed by other policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    policy-type: default-deny
+spec:
+  podSelector: {}  # Applies to all pods in the namespace
+  policyTypes:
+  - Egress
+
+---
+# 3. Allow NetworkPolicy for Web Tier
+# This policy allows specific ingress/egress traffic for web frontend pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-tier-policy
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    tier: web
+spec:
+  podSelector:
+    matchLabels:
+      tier: web
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow HTTP/HTTPS traffic from external sources
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8  # Example: Block private network traffic
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow traffic to API tier only
+  - to:
+    - podSelector:
+        matchLabels:
+          tier: api
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# 4. Allow NetworkPolicy for API Tier
+# This policy allows specific ingress/egress traffic for API service pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-tier-policy
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    tier: api
+spec:
+  podSelector:
+    matchLabels:
+      tier: api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow traffic from web tier
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: web
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow traffic to database tier only
+  - to:
+    - podSelector:
+        matchLabels:
+          tier: db
+    ports:
+    - protocol: TCP
+      port: 5432  # PostgreSQL example
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# 5. Allow NetworkPolicy for Database Tier
+# This policy allows only specific ingress traffic to database pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-tier-policy
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    tier: db
+spec:
+  podSelector:
+    matchLabels:
+      tier: db
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow traffic from API tier
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: api
+    ports:
+    - protocol: TCP
+      port: 5432  # PostgreSQL example
+  egress:
+  # Allow DNS resolution only
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# 6. Service Mesh Configuration - Istio VirtualService
+# This defines routing rules for traffic within the service mesh
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: secure-routing
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    service-mesh: istio
+spec:
+  hosts:
+  - api-service.cloud-security-lab.svc.cluster.local
+  gateways:
+  - mesh  # Apply to all sidecars in the mesh
+  http:
+  - match:
+    - uri:
+        prefix: /api/v1
+    route:
+    - destination:
+        host: api-service.cloud-security-lab.svc.cluster.local
+        port:
+          number: 8080
+        subset: v1
+    # Add security headers to all responses
+    headers:
+      response:
+        set:
+          Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+          X-Content-Type-Options: "nosniff"
+          X-XSS-Protection: "1; mode=block"
+  # Circuit breaking and fault tolerance
+  - fault:
+      delay:
+        percentage:
+          value: 5
+        fixedDelay: 1s
+    route:
+    - destination:
+        host: api-service.cloud-security-lab.svc.cluster.local
+        port:
+          number: 8080
+        subset: v2
+
+---
+# 7. Service Mesh Configuration - Istio DestinationRule
+# This defines service subsets and TLS settings
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: secure-destination
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    service-mesh: istio
+spec:
+  host: api-service.cloud-security-lab.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL  # Enable mTLS for all traffic
+    connectionPool:  # Circuit breaking settings
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 25
+        maxRequestsPerConnection: 100
+    outlierDetection:  # Remove failing instances
+      consecutiveErrors: 3
+      interval: 30s
+      baseEjectionTime: 60s
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+
+---
+# 8. Service Mesh Configuration - Istio AuthorizationPolicy
+# This defines authorization rules for service-to-service communication
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: api-authorization
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    service-mesh: istio
+spec:
+  selector:
+    matchLabels:
+      app: api-service
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/cloud-security-lab/sa/web-service-account"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/*"]
+  - from:
+    - source:
+        namespaces: ["monitoring"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/metrics"]
+
+---
+# 9. Kubernetes Ingress Resource with Security Configurations
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: secure-ingress
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+  annotations:
+    # TLS and security-related annotations
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    # Enable HTTP Strict Transport Security
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+    # Rate limiting to prevent DDoS
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    # Client certificate authentication (mTLS)
+    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    nginx.ingress.kubernetes.io/auth-tls-secret: "cloud-security-lab/ca-secret"
+    # WAF integration example
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - secure-app.example.com
+    secretName: tls-secret
+  rules:
+  - host: secure-app.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-service
+            port:
+              number: 80
+
+---
+# 10. External Service Access Control - Istio ServiceEntry
+# This defines how to securely access external services
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-api-access
+  namespace: cloud-security-lab
+  labels:
+    app: network-security
+    service-mesh: istio
+spec:
+  hosts:
+  - api.external-service.com
+  ports:
+  - number: 443
+    name: https
+    protocol: TLS
+  resolution: DNS
+  location: MESH_EXTERNAL
+  exportTo:
+  - "."  # Export only to current namespace for controlled access
+
+---
+# 11. Egress Gateway - Control outbound traffic through a managed exit point
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: secure-egress-gateway
+  namespace: istio-system
+  labels:
+    app: network-security
+    service-mesh: istio
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 443
+      name: tls
+      protocol: TLS
+    hosts:
+    - api.external-service.com
+    tls:
+      mode: PASSTHROUGH
+

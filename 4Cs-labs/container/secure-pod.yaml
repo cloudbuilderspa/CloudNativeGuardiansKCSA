@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secure-nginx
+  labels:
+    app: secure-nginx
+  annotations:
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+spec:
+  # Pod-level security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginx:1.21-alpine
+    ports:
+    - containerPort: 8080
+      name: http
+      protocol: TCP
+    # Container-level security context
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+    # Resource limits
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    # Health checks
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    # Mount read-only volume for configuration
+    volumeMounts:
+    - name: nginx-config
+      mountPath: /etc/nginx/conf.d
+      readOnly: true
+    - name: tmp-volume
+      mountPath: /tmp
+    - name: var-run
+      mountPath: /var/run
+  # No access to host namespaces
+  hostNetwork: false
+  hostPID: false
+  hostIPC: false
+  # Volumes
+  volumes:
+  - name: nginx-config
+    configMap:
+      name: nginx-config
+      optional: true
+  - name: tmp-volume
+    emptyDir: {}
+  - name: var-run
+    emptyDir: {}
+

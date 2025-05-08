@@ -1,0 +1,166 @@
+# Sample secure container build configuration 
+# This file demonstrates how to build secure container images 
+# with multi-stage builds, minimal base images, and security best practices
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dockerfile-template
+data:
+  Dockerfile: |
+    # Build stage - used only for compilation and dependency resolution
+    FROM golang:1.19-alpine AS builder
+    
+    # Install security tools for build-time scanning
+    RUN apk add --no-cache git ca-certificates && \
+        wget -O /usr/local/bin/trivy https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit && \
+        chmod +x /usr/local/bin/trivy
+    
+    # Set working directory
+    WORKDIR /app
+    
+    # Copy Go module files and download dependencies
+    COPY go.mod go.sum ./
+    RUN go mod download
+    
+    # Scan dependencies before building
+    RUN trivy fs --exit-code 1 --severity HIGH,CRITICAL --no-progress /go/pkg/mod
+    
+    # Copy source code
+    COPY . .
+    
+    # Static code analysis
+    RUN go vet ./...
+    
+    # Build the application with security flags
+    RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /app/server ./cmd/server
+    
+    # Scan the built binary
+    RUN trivy fs --exit-code 1 --severity HIGH,CRITICAL --no-progress /app/server
+    
+    # Runtime stage - minimal image with only the application
+    FROM alpine:3.17 AS runtime
+    
+    # Install CA certificates for secure connections
+    RUN apk --no-cache add ca-certificates
+    
+    # Create a non-root user and group
+    RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+    
+    # Create directory for application with correct permissions
+    WORKDIR /app
+    
+    # Copy the compiled binary from builder stage
+    COPY --from=builder /app/server /app/
+    
+    # Copy only necessary config files
+    COPY --from=builder /app/config/config.yaml /app/config/
+    
+    # Set ownership of the application files
+    RUN chown -R appuser:appgroup /app
+    
+    # Use the non-root user
+    USER appuser
+    
+    # Define health and readiness checks
+    HEALTHCHECK --interval=30s --timeout=3s \
+      CMD wget -qO- http://localhost:8080/health || exit 1
+    
+    # Set runtime configurations
+    ENV APP_ENV=production \
+        LOG_LEVEL=info
+    
+    # Expose application port
+    EXPOSE 8080
+    
+    # Run with minimal capabilities
+    ENTRYPOINT ["/app/server"]
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cosign-verification-script
+data:
+  verify.sh: |
+    #!/bin/sh
+    set -e
+    
+    IMAGE_NAME=$1
+    PUBLIC_KEY=/etc/cosign/cosign.pub
+    
+    if [ -z "$IMAGE_NAME" ]; then
+      echo "Error: Image name not provided"
+      echo "Usage: $0 <image-name>"
+      exit 1
+    fi
+    
+    echo "Verifying signature for image: $IMAGE_NAME"
+    
+    if cosign verify --key $PUBLIC_KEY $IMAGE_NAME; then
+      echo "✅ Signature verification successful"
+      exit 0
+    else
+      echo "❌ Signature verification failed"
+      exit 1
+    fi
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: secure-build-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: build-container
+        image: docker:20.10-dind
+        securityContext:
+          privileged: true  # Required for Docker in Docker
+          # In production, use Kaniko or BuildKit with minimal privileges instead
+        env:
+        - name: REGISTRY
+          value: "myregistry.example.com"
+        - name: IMAGE_NAME
+          value: "secure-app"
+        - name: IMAGE_TAG
+          value: "1.0.0"
+        volumeMounts:
+        - name: dockerfile-volume
+          mountPath: /build/Dockerfile
+          subPath: Dockerfile
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Create build context
+          mkdir -p /workspace && cd /workspace
+          
+          # Use the template Dockerfile
+          cp /build/Dockerfile .
+          
+          # Build image with security best practices
+          docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+          
+          # Scan the built image
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+            --exit-code 1 --severity HIGH,CRITICAL $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+          
+          # Sign the image with cosign (simplified, actual implementation would use proper key management)
+          cosign sign --key /etc/cosign/cosign.key $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+          
+          # Push the image and signatures
+          docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+      volumes:
+      - name: dockerfile-volume
+        configMap:
+          name: dockerfile-template
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+      restartPolicy: Never
+
