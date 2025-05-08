@@ -1,70 +1,71 @@
-# Repositorio de Estudio para la Certificación KCSA (CloudNativeGuardiansKCSA)
+For the Spanish version, please see [README_es.md](README_es.md).
+---
 
-## Propósito
+# KCSA Certification Study Repository (CloudNativeGuardiansKCSA)
 
-Bienvenido al repositorio de CloudNativeGuardiansKCSA. Este espacio está diseñado para servir como una guía de estudio completa y una plataforma de autoevaluación para prepararte para la certificación **KCSA (Kubernetes and Cloud Native Security Associate)**. Aquí encontrarás materiales de estudio, ejemplos prácticos y exámenes por sección para ayudarte a dominar los conceptos clave de la seguridad nativa de la nube.
+## Purpose
 
-## Estructura del Repositorio
+Welcome to the CloudNativeGuardiansKCSA repository. This space is designed to serve as a comprehensive study guide and self-assessment platform to prepare you for the **KCSA (Kubernetes and Cloud Native Security Associate)** certification. Here you will find study materials, practical examples, and per-section exams to help you master the key concepts of cloud native security.
 
-El contenido de este repositorio está organizado en secciones temáticas, cada una cubriendo un dominio específico del examen KCSA. Todas las secciones se encuentran dentro del directorio `sections/`.
+## Repository Structure
 
-### Secciones Principales:
+The content of this repository is organized into thematic sections, each covering a specific domain of the KCSA exam. All sections are located within the `sections/` directory.
 
-1.  **`1_Overview of Cloud Native Security`**: Introducción a los conceptos fundamentales de la seguridad en entornos nativos de la nube, incluyendo los 4Cs, seguridad del proveedor de la nube, frameworks de control y más.
-2.  **`2_Cluster_Setup`**: Configuración segura de clústeres de Kubernetes.
-3.  **`3_Cluster_Hardening`**: Técnicas y mejores prácticas para fortalecer la seguridad de los clústeres de Kubernetes.
-4.  **`4_System_Hardening`**: Fortalecimiento de la seguridad a nivel de sistema operativo y nodos del clúster.
-5.  **`5_Minimize_Microservice_Vulnerabilities`**: Estrategias para reducir las vulnerabilidades en microservicios.
-6.  **`6_Supply_Chain_Security`**: Aseguramiento de la cadena de suministro de software, desde el código hasta el despliegue.
-7.  **`7_Monitoring_Logging_and_Runtime_Security`**: Monitorización, registro y seguridad en tiempo de ejecución para aplicaciones nativas de la nube.
+### Main Sections:
 
-### Organización del Contenido Bilingüe:
+1.  **`1_Overview of Cloud Native Security`**: Introduction to the fundamental concepts of security in cloud native environments, including the 4Cs, cloud provider and infrastructure security, controls and frameworks, and more.
+2.  **`2_Cluster_Setup`**: Secure configuration of Kubernetes clusters.
+3.  **`3_Cluster_Hardening`**: Techniques and best practices for strengthening the security of Kubernetes clusters.
+4.  **`4_System_Hardening`**: Strengthening security at the operating system and cluster node level.
+5.  **`5_Minimize_Microservice_Vulnerabilities`**: Strategies to reduce vulnerabilities in microservices.
+6.  **`6_Supply_Chain_Security`**: Securing the software supply chain, from code to deployment.
+7.  **`7_Monitoring_Logging_and_Runtime_Security`**: Monitoring, logging, and runtime security for cloud native applications.
 
-Para facilitar el estudio a una audiencia más amplia, el material de estudio dentro de cada sección está disponible en dos idiomas:
+### Bilingual Content Organization:
 
-*   **Español:** Los archivos de contenido en español tienen el sufijo `_es.md` (por ejemplo, `main_concepts_es.md`).
-*   **Inglés:** Los archivos de contenido en inglés tienen el sufijo `_en.md` (por ejemplo, `main_concepts_en.md`).
+To facilitate study for a wider audience, the study material within each section is available in two languages:
 
-Cada sección también puede incluir:
-*   Archivos de laboratorio (por ejemplo, `lab_ejemplo.yml` o específicos como `lab_np.yml` y `lab_pss.yml` en la sección 1) para practicar los conceptos aprendidos.
-*   Un script de examen interactivo `exam.py`.
+*   **Spanish:** Spanish content files have the `_es.md` suffix (e.g., `main_concepts_es.md`).
+*   **English:** English content files have the `_en.md` suffix (e.g., `main_concepts_en.md`).
 
-## Cómo Usar los Exámenes de Práctica
+Each section may also include:
+*   Lab files (e.g., `lab_ejemplo.yml` or specific ones like `lab_np.yml` and `lab_pss.yml` in section 1) to practice the learned concepts.
+*   An interactive exam script `exam.py`.
 
-Cada sección temática incluye un script de Python (`exam.py`) que te permite realizar un examen de práctica para evaluar tus conocimientos sobre los temas de esa sección.
+## How to Use the Practice Exams
 
-Para ejecutar un examen:
+Each thematic section includes a Python script (`exam.py`) that allows you to take a practice exam to assess your knowledge of the topics in that section.
 
-1.  **Navega al directorio de la sección deseada:**
+To run an exam:
+
+1.  **Navigate to the desired section directory:**
     ```bash
-    cd sections/NOMBRE_DE_LA_SECCION/
-    # Ejemplo:
+    cd sections/SECTION_NAME/
+    # Example:
     # cd sections/1_Overview of Cloud Native Security/
     ```
 
-2.  **Ejecuta el script de examen:**
-    Utiliza `python` o `python3` dependiendo de tu configuración de sistema.
+2.  **Run the exam script:**
+    Use `python` or `python3` depending on your system configuration.
     ```bash
     python exam.py
-    # o
+    # or
     # python3 exam.py
     ```
 
-3.  **Selecciona el Idioma:**
-    Al inicio, el script te pedirá que elijas el idioma para el examen. Puedes ingresar:
-    *   `en` para Inglés.
-    *   `es` para Español.
+3.  **Select the Language:**
+    At the beginning, the script will ask you to choose the language for the exam. You can enter:
+    *   `en` for English.
+    *   `es` for Spanish.
 
-Sigue las instrucciones en pantalla para completar el examen. Al finalizar, recibirás tu puntaje.
+Follow the on-screen instructions to complete the exam. At the end, you will receive your score.
 
-## Contribuciones
+## Contributions
 
-¡Las contribuciones son bienvenidas! Si encuentras errores, tienes sugerencias para mejorar el material, quieres añadir nuevas preguntas a los exámenes, o proponer contenido adicional, por favor, siéntete libre de:
+Contributions are welcome! If you find errors, have suggestions to improve the material, want to add new questions to the exams, or propose additional content, please feel free to:
 
-*   Abrir un **Issue** para discutir los cambios.
-*   Enviar un **Pull Request** con tus mejoras.
+*   Open an **Issue** to discuss the changes.
+*   Submit a **Pull Request** with your improvements.
 
-Juntos podemos hacer de este repositorio un recurso aún mejor para la comunidad.
+Together we can make this repository an even better resource for the community.
 
-# CloudNativeGuardiansKCSA
-"Comprehensive resources and study materials for the Kubernetes Cloud Native Security Associate (KCSA) exam. This repository includes detailed guides, best practices, and hands-on examples to help you master Kubernetes security."
