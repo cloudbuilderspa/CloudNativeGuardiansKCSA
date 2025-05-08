@@ -57,6 +57,78 @@ Protecting sensitive data stored in Kubernetes Secrets requires careful handling
         *   **Secrets Store CSI Driver:** Allows Kubernetes to mount secrets stored in external managers as volumes into Pods, similar to native Secrets.
         *   **External Secrets Operator:** Synchronizes secrets from an external provider into native Kubernetes Secrets.
 *   **Sealed Secrets:** A Kubernetes controller that encrypts Secrets with a public key, allowing the encrypted "SealedSecret" to be safely stored in Git. The controller in the cluster decrypts it with a private key to create a native Secret.
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "External Secret Manager"
+        ExtSecretManager["External Secret Manager <br/> (e.g., HashiCorp Vault, AWS Secrets Manager)"]
+        SecretData["Secret Data"]
+        ExtSecretManager -- "Stores/Manages" --> SecretData
+    end
+
+    subgraph "Kubernetes Cluster"
+        K8sAPI["Kubernetes API Server"]
+        Kubelet
+        Pod["Pod (needs secret)"]
+        SecretController["External Secret Controller/Driver <br/> (e.g., ESO, CSI Driver)"]
+
+        K8sCustomResource["Custom Resource <br/> (e.g., ExternalSecret)"]
+
+        K8sCustomResource -- "Watches for" --> SecretController
+        SecretController -- "Retrieves Secret Data" --> ExtSecretManager
+        ExtSecretManager -- "Returns Secret Data" --> SecretController
+        SecretController -- "Syncs Secret" --> Pod
+    end
+
+    K8sAPI -- Watches & Manages --> SecretController
+    Pod -- "Consumes Secret Data" --> SecretController
+
+    classDef k8s fill:#D6EAF8,stroke:#333;
+    class K8sAPI,Kubelet,SecretController k8s;
+    classDef cr fill:#EBF5FB,stroke:#333
+    class K8sCustomResource cr;
+    classDef external fill:#FEF9E7,stroke:#333
+    class ExtSecretManager, SecretData external;
+</div>
+{% endraw %}
+
+{% raw %}
+<div class="mermaid">
+graph TD
+    subgraph "External Secret Manager"
+        ExtSecretManager["External Secret Manager <br/> (e.g., HashiCorp Vault, AWS Secrets Manager)"]
+        SecretData["Secret Data"]
+        ExtSecretManager -- "Stores/Manages" --> SecretData
+    end
+
+    subgraph "Kubernetes Cluster"
+        K8sAPI["Kubernetes API Server"]
+        Kubelet
+        Pod["Pod (needs secret)"]
+        SecretController["External Secret Controller/Driver <br/> (e.g., ESO, CSI Driver)"]
+
+        K8sCustomResource["Custom Resource <br/> (e.g., ExternalSecret)"]
+
+        K8sCustomResource -- "Watches for" --> SecretController
+        SecretController -- "Retrieves Secret Data" --> ExtSecretManager
+        ExtSecretManager -- "Returns Secret Data" --> SecretController
+        SecretController -- "Syncs Secret" --> Pod
+    end
+
+    K8sAPI -- Watches & Manages --> SecretController
+    Pod -- "Consumes Secret Data" --> SecretController
+
+    classDef k8s fill:#D6EAF8,stroke:#333;
+    class K8sAPI,Kubelet,SecretController k8s;
+    classDef cr fill:#EBF5FB,stroke:#333
+    class K8sCustomResource cr;
+    classDef external fill:#FEF9E7,stroke:#333
+    class ExtSecretManager, SecretData external;
+</div>
+{% endraw %}
+
+
 *   **KCSA Relevance:** Be aware that native Kubernetes Secrets are not the only option and that external systems or patterns like Sealed Secrets exist to enhance security and manageability, especially in GitOps workflows.
 
 ### Rotation Strategies for Secrets
